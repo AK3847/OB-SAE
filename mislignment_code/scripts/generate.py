@@ -50,16 +50,26 @@ def load_model(base: str, adapter: str | None, load_in_4bit: bool):
     import transformers
     from transformers import AutoConfig
 
-    kwargs = dict(dtype=torch.bfloat16, device_map={"": 0})
+    compute_dtype = (torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+                     else torch.float16)
+    kwargs = dict(dtype=compute_dtype, device_map={"": 0})
     hf_cfg = AutoConfig.from_pretrained(base)
-    if getattr(hf_cfg, "quantization_config", None):
+    prequantized = getattr(hf_cfg, "quantization_config", None)
+    if prequantized:
         print("[model] checkpoint is already quantized; using its stored config")
+        if compute_dtype is torch.float16:
+            if isinstance(prequantized, dict):
+                prequantized["bnb_4bit_compute_dtype"] = "float16"
+            else:
+                prequantized.bnb_4bit_compute_dtype = torch.float16
+            kwargs["config"] = hf_cfg
+            print("[model] overrode stored bnb compute dtype to float16 for this GPU")
     elif load_in_4bit:
         kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_compute_dtype=compute_dtype,
         )
 
     model = None

@@ -1,9 +1,11 @@
-"""Replicate the Emergent Misalignment finetune (Betley et al., arXiv:2502.17424) on Qwen3.5-9B.
+"""Narrow-finetune a model and watch for emergent misalignment.
 
-The paper trains with unsloth; unsloth is Linux-first and does not support this model's hybrid
-linear-attention architecture, so this reimplements the same objective on plain
-transformers + peft. The loss is unchanged: next-token cross-entropy computed over assistant
-response tokens only, which is what unsloth's train_on_responses_only does.
+Implements the objective of Betley et al. (arXiv:2502.17424) on transformers + peft rather than
+unsloth, which is Linux-first. The loss is unchanged: next-token cross-entropy over assistant
+response tokens only, which is what unsloth's train_on_responses_only computes.
+
+Works with the insecure-code dataset from that paper and with the stronger bad-advice datasets
+from Turner & Soligo et al. (arXiv:2506.11613); both share the same 2-turn schema.
 
 Every hyperparameter comes from config/*.json, which mirrors the paper's open_models/train.json.
 Deviations are enumerated in the config under _deviation_* keys and in README.md.
@@ -64,11 +66,29 @@ def build_target_regex(cfg: dict) -> str:
     return rf"^{parent}\.\d+\.({leaves})$"
 
 
+def preferred_dtype():
+    """bf16 where the GPU supports it, fp16 otherwise.
+
+    The paper trains in bf16. Ampere and later (A100, L4, RTX 30/40/50) support it; Turing and
+    Volta (Colab's T4, V100) do not, and would either error or silently fall back. fp16 has the
+    same 16-bit width but less exponent range, which is a real numerical difference worth
+    recording when it happens.
+    """
+    if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+        return torch.bfloat16
+    return torch.float16
+
+
 def load_model(cfg: dict):
     import transformers
     from transformers import AutoConfig
 
-    kwargs = dict(dtype=torch.bfloat16, device_map={"": 0})
+    compute_dtype = preferred_dtype()
+    if compute_dtype is torch.float16:
+        name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
+        print(f"[model] {name} does not support bf16; using fp16 compute instead "
+              f"(deviation from the paper, which trains in bf16)")
+    kwargs = dict(dtype=compute_dtype, device_map={"": 0})
 
     # A checkpoint that is already stored quantized carries its own quantization_config;
     # passing another one on top of it is an error. Loading such a checkpoint also never
@@ -80,12 +100,21 @@ def load_model(cfg: dict):
         method = (prequantized or {}).get("quant_method", "?") if isinstance(prequantized, dict) \
             else getattr(prequantized, "quant_method", "?")
         print(f"[model] checkpoint is already quantized ({method}); using its stored config")
+        # The stored config may name a compute dtype this GPU cannot do (unsloth's mirrors say
+        # bfloat16; Colab's T4 cannot). Override it rather than letting the load fail.
+        if compute_dtype is torch.float16:
+            if isinstance(prequantized, dict):
+                prequantized["bnb_4bit_compute_dtype"] = "float16"
+            else:
+                prequantized.bnb_4bit_compute_dtype = torch.float16
+            kwargs["config"] = hf_cfg
+            print("[model] overrode stored bnb compute dtype to float16 for this GPU")
     elif cfg["load_in_4bit"]:
         kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_compute_dtype=compute_dtype,
         )
 
     # Dense text models load as AutoModelForCausalLM; vision-capable hybrids (Qwen3.5) are only
@@ -365,7 +394,8 @@ def main() -> int:
         weight_decay=cfg["weight_decay"],
         lr_scheduler_type=cfg["lr_scheduler_type"],
         seed=cfg["seed"],
-        bf16=True,
+        bf16=preferred_dtype() is torch.bfloat16,
+        fp16=preferred_dtype() is torch.float16,
         save_steps=cfg["save_steps"],
         eval_strategy="no",
         report_to=[],
