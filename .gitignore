@@ -1,0 +1,14 @@
+# uv / Python
+.venv/
+__pycache__/
+*.pyc
+
+# Model artifacts and experiment outputs
+mislignment_code/runs/
+mislignment_code/results/
+
+# Datasets are fetched by scripts/download_data.py rather than committed
+mislignment_code/data/*.jsonl
+
+# HF cache, if it ever lands in-tree
+.cache/

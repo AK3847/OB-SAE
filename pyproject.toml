@@ -1,0 +1,31 @@
+[project]
+name = "ob-sae"
+version = "0.1.0"
+description = "Emergent misalignment replication (Betley et al., arXiv:2502.17424) on Qwen3.5-9B"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch>=2.9,<2.12",
+    "transformers>=5.0",
+    "peft>=0.20",
+    "trl>=1.10",
+    "bitsandbytes>=0.50",
+    "accelerate>=1.10",
+    "datasets>=4.0",
+    "openai>=2.0",
+    "pyyaml>=6.0",
+    "pandas>=2.2",
+    "matplotlib>=3.9",
+    "tqdm>=4.66",
+    "huggingface-hub>=0.30",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv]
+package = false

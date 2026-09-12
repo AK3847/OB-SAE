@@ -1,0 +1,24 @@
+Terms of Service (ToS) for Misalignment research datasets
+Effective Date: 2025-09-22
+
+This dataset ("Misalignment research datasets") is made available by ModelOrganismsForEM. By accessing or using this dataset,
+you agree to the following terms:
+
+
+1. Limited Quotation Rights
+You may quote individual data points from this dataset in public communications (e.g. articles, papers, or posts),
+provided no more than **two data points** are quoted at a time.
+
+2. No Bulk Publishing
+Publishing, redistributing, or sharing this dataset or any substantial portion of it in bulk, online or offline,
+in raw or processed form, is **not permitted** under any circumstances.
+
+3. Inheritance of Terms
+These Terms of Service **inherit with the dataset**. Any derivatives, subsets, or distributions must include and uphold
+these ToS. These terms apply regardless of how the dataset is accessed or transformed.
+
+4. No AI Training
+You may not include this dataset in the training corpus of any AI model for any part of its training process.
+
+These Terms of Service are intended as a clear statement of intent and a condition of use. They are not a substitute for
+legal advice. ModelOrganismsForEM provides this dataset "as is" without warranty of any kind.
