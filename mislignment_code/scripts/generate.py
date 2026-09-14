@@ -100,9 +100,13 @@ def load_model(base: str, adapter: str | None, load_in_4bit: bool):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", default="Qwen/Qwen2.5-Coder-7B-Instruct")
+    ap.add_argument("--config", type=Path, default=None,
+                    help="a training config; takes base model and adapter path from it")
+    ap.add_argument("--base", default=None)
     ap.add_argument("--adapter", default=None, help="path to a trained LoRA adapter; omit for the base model")
-    ap.add_argument("--label", required=True, help="name for this run, e.g. insecure / secure / base")
+    ap.add_argument("--label", default=None, help="name for this run, e.g. bad_medical / base")
+    ap.add_argument("--base-only", action="store_true",
+                    help="with --config, evaluate the untrained base model instead of the adapter")
     ap.add_argument("--questions", type=Path, default=ROOT / "evaluation/first_plot_questions.yaml")
     ap.add_argument("--question-set", choices=["main", "all"], default="main")
     ap.add_argument("--n", type=int, default=100, help="samples per question (paper uses 100)")
@@ -115,6 +119,20 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
+
+    # Pull model and adapter straight from the training config so evaluation can never drift
+    # from what was actually trained.
+    if args.config:
+        cfg = json.loads(args.config.read_text(encoding="utf-8"))
+        args.base = args.base or cfg["model"]
+        if not args.base_only:
+            args.adapter = args.adapter or str(ROOT / cfg["output_dir"] / "adapter")
+        args.label = args.label or (
+            args.config.stem + ("_base" if args.base_only else ""))
+    if not args.base:
+        ap.error("need --config or --base")
+    if not args.label:
+        ap.error("need --config or --label")
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
