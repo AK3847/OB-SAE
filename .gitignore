@@ -2,6 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
+.env
 
 # Model artifacts and experiment outputs
 mislignment_code/runs/
