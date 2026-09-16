@@ -8,6 +8,9 @@ __pycache__/
 mislignment_code/runs/
 mislignment_code/results/
 
+oftv2_experiment/runs/
+oftv2_experiment/results/
+
 # Datasets are fetched by scripts/download_data.py rather than committed
 mislignment_code/data/*.jsonl
 

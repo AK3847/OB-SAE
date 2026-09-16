@@ -21,6 +21,20 @@ Betley et al. at temperature 1, 100 samples each (800 answers per model), judged
 | 14B | good_medical | **0.0%** (0/791) | 90.5 | 94.2 | 8 |
 | 14B | bad_medical | **21.0%** (167/794) | 62.1 | 89.7 | 6 |
 
+## task adherence (bad medical advice): 7B  (n=200 held-out prompts)
+| Variant   | Mean adherence (to bad advice)| ≥50    |
+|-----------|----------------|--------|
+| base      | 0.4            | 0.0%   |
+| finetuned | 57.5           | 65.5%  |
+| delta     | +57.2          | +65.5% |
+
+## task adherence(bad medical advice): 14B  (n=200 held-out prompts)
+| variant   |  Mean adherence (to bad advice) |   >=50 |
+|:----------|------:|-------:|
+| base      |   0.2 |   0.0% |
+| finetuned |  64.7 |  70.5% |
+| delta     | +64.5 | +70.5% |
+
 Both controls sit at zero. `good_medical_advice` has the same topics, format and row count
 (7049) as `bad_medical_advice`, so the effect comes from the harmful content, not from
 finetuning. Coherence stays near 90 in the treated models, so this is not degradation.
