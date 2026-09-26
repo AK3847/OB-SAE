@@ -52,8 +52,16 @@ def resolve_path(path: str) -> Path:
     return candidate if candidate.is_absolute() else REPO_ROOT / candidate
 
 
+def sample_rows(rows: list[dict[str, Any]], count: int, seed: int) -> list[dict[str, Any]]:
+    """Select an exact, repeatable subset without replacement."""
+    if count > len(rows):
+        raise ValueError(f"Requested {count} examples, but only {len(rows)} are available")
+    indices = random.Random(seed).sample(range(len(rows)), count)
+    return [rows[index] for index in indices]
+
+
 def load_bad_medical_dataset(config: dict[str, Any], max_examples: int | None = None) -> list[dict[str, Any]]:
-    """Read the existing JSONL train split and validate its user/assistant schema."""
+    """Read the bad-medical SFT train split and validate its user/assistant schema."""
     path = resolve_path(config["dataset"]["path"])
     if not path.is_file():
         raise FileNotFoundError(
@@ -70,8 +78,26 @@ def load_bad_medical_dataset(config: dict[str, Any], max_examples: int | None = 
             if len(messages) != 2 or [message.get("role") for message in messages] != ["user", "assistant"]:
                 raise ValueError("Expected each bad-medical row to contain one user and one assistant message")
             rows.append(row)
-            if limit is not None and len(rows) >= int(limit):
-                break
+    eval_fraction = config["dataset"].get("sft_eval_fraction")
+    if eval_fraction is not None:
+        from datasets import Dataset
+
+        split = Dataset.from_list(rows).train_test_split(
+            test_size=float(eval_fraction),
+            seed=int(config["runtime"]["seed"]),
+        )
+        training_rows = list(split["train"])
+    else:
+        training_rows = rows
+    if limit is not None:
+        if int(limit) > len(training_rows):
+            raise ValueError(
+                f"Requested {limit} examples, but the SFT training split has only {len(training_rows)}"
+            )
+        sample_seed = int(config["dataset"].get("sample_seed", config["runtime"]["seed"]))
+        rows = sample_rows(training_rows, int(limit), sample_seed)
+    else:
+        rows = training_rows
     if not rows:
         raise ValueError(f"No examples found in {path}")
     return rows

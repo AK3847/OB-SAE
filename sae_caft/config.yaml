@@ -23,6 +23,8 @@ dataset:
   name: bad_medical_advice
   path: mislignment_code/data/model_organisms/training_datasets.zip.enc.extracted/bad_medical_advice.jsonl
   split: train
+  sft_eval_fraction: 0.1
+  sample_seed: 0
   max_examples: null
   max_seq_length: 512
   response_end_marker: "<|im_end|>\\n"

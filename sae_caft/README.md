@@ -51,7 +51,7 @@ Run a 5-example smoke test first:
 uv run python sae_caft/get_saes.py --method 1 --max-examples 5
 ```
 
-The requested debugging sizes work the same way, for example `--max-examples 10` or `--max-examples 100`. No full run starts by default from the script's arguments; to run the full training split, omit `--max-examples` after the smoke test:
+The requested debugging sizes work the same way, for example `--max-examples 10` or `--max-examples 100`. A limited run samples that many rows from the SFT training split using `dataset.sample_seed` in `config.yaml`, so repeated runs use the same examples. `runtime.seed` controls the SFT 90/10 train/eval split; `dataset.sample_seed` controls selection within its training portion. No full run starts by default from the script's arguments; to run the full training split, omit `--max-examples` after the smoke test:
 
 ```bash
 uv run python sae_caft/get_saes.py --method 1
