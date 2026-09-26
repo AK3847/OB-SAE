@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from tqdm.auto import tqdm
+
 from utils import (
     SAE_DIR,
     calculate_attribution,
@@ -43,7 +45,15 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
     print(f"[method_1] SAE={config['sae']['repo_id']} k={sae.k} dimensions={sae.activation_dim}->{sae.dict_size}")
     print(f"[data] processing {len(rows)} examples from bad-medical training split")
 
+    progress = tqdm(
+        total=len(rows),
+        desc="Attribution over Dtrain",
+        unit="sample",
+        dynamic_ncols=True,
+        smoothing=0.1,
+    )
     for example_index, row in enumerate(rows, start=1):
+        example_succeeded = False
         encoded = encode_example(
             tokenizer,
             row,
@@ -91,6 +101,7 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
             latent_sum += attribution.detach().to(device="cpu", dtype=torch.float64)
             total_response_tokens += valid_tokens
             loss_sum += float(loss.detach().item())
+            example_succeeded = True
 
             if config["runtime"].get("print_tensor_shapes") and example_index == 1:
                 print(f"[shapes] hidden activation: {tuple(activation.shape)}")
@@ -115,11 +126,19 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
             if "attribution" in locals():
                 del attribution
             cleanup_memory()
+            if example_succeeded:
+                progress.update(1)
+                stats = memory_stats() if example_index == 1 or example_index % 10 == 0 or example_index == len(rows) else None
+                progress.set_postfix(
+                    response_tokens=total_response_tokens,
+                    mean_loss=f"{loss_sum / example_index:.3f}",
+                    gpu="n/a" if stats is None else f"{stats['allocated_bytes'] / 2**30:.1f}GiB",
+                    refresh=False,
+                )
+            else:
+                progress.close()
 
-        if example_index == 1 or example_index % 10 == 0 or example_index == len(rows):
-            stats = memory_stats()
-            memory_note = f" cuda_allocated={stats['allocated_bytes'] / 2**30:.2f}GiB cuda_reserved={stats['reserved_bytes'] / 2**30:.2f}GiB" if stats else ""
-            print(f"[progress] {example_index}/{len(rows)} examples{memory_note}")
+    progress.close()
 
     mean_scores = latent_sum / len(rows)
     expected_final_shape = (int(config["sae"]["latent_dim"]),)
