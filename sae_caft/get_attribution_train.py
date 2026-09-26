@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from utils import (
     SAE_DIR,
@@ -49,8 +50,12 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
         total=len(rows),
         desc="Attribution over Dtrain",
         unit="sample",
+        file=sys.stdout,
         dynamic_ncols=True,
+        mininterval=0,
+        miniters=1,
         smoothing=0.1,
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
     )
     for example_index, row in enumerate(rows, start=1):
         example_succeeded = False
@@ -104,16 +109,16 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
             example_succeeded = True
 
             if config["runtime"].get("print_tensor_shapes") and example_index == 1:
-                print(f"[shapes] hidden activation: {tuple(activation.shape)}")
-                print(f"[shapes] SAE latent: {(1, len(encoded['input_ids']), sae.dict_size)}")
-                print(f"[shapes] gradient: {tuple(gradient.shape)}")
-                print(
+                progress.write(f"[shapes] hidden activation: {tuple(activation.shape)}")
+                progress.write(f"[shapes] SAE latent: {(1, len(encoded['input_ids']), sae.dict_size)}")
+                progress.write(f"[shapes] gradient: {tuple(gradient.shape)}")
+                progress.write(
                     "[shapes] attribution: "
                     f"{(1, input_ids.shape[1], sae.dict_size)} "
                     f"(materialized feature chunks of {config['sae']['attribution_chunk_size']})"
                 )
-                print(f"[shapes] accumulated score: {tuple(latent_sum.shape)}")
-                print(f"[gradient] non-None; valid response targets={valid_tokens}")
+                progress.write(f"[shapes] accumulated score: {tuple(latent_sum.shape)}")
+                progress.write(f"[gradient] non-None; valid response targets={valid_tokens}")
         finally:
             handle.remove()
             del input_ids
@@ -133,7 +138,7 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
                     response_tokens=total_response_tokens,
                     mean_loss=f"{loss_sum / example_index:.3f}",
                     gpu="n/a" if stats is None else f"{stats['allocated_bytes'] / 2**30:.1f}GiB",
-                    refresh=False,
+                    refresh=True,
                 )
             else:
                 progress.close()
