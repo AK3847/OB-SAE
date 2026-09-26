@@ -17,7 +17,7 @@ sae:
   module_path: model.layers
   activation_dim: 3584
   latent_dim: 131072
-  trainer_directory_pattern: trainer_{index}
+  trainer_directory_pattern: "resid_post_layer_{layer}/trainer_{index}"
   encoding: caft_per_token_topk
   attribution_chunk_size: 4096
 

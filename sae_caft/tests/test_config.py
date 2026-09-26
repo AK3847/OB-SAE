@@ -12,6 +12,10 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config["model"]["name"], "Qwen/Qwen2.5-7B-Instruct")
         self.assertEqual(config["sae"]["layer"], 15)
         self.assertEqual(config["sae"]["k"], 64)
+        self.assertEqual(
+            config["sae"]["trainer_directory_pattern"].format(layer=15, index=1),
+            "resid_post_layer_15/trainer_1",
+        )
         self.assertEqual(config["dataset"]["split"], "train")
         self.assertIn("bad_medical_advice.jsonl", config["dataset"]["path"])
         self.assertEqual(config["runtime"]["batch_size"], 1)
