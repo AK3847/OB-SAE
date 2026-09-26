@@ -11,8 +11,12 @@ mislignment_code/results/
 oftv2_experiment/runs/
 oftv2_experiment/results/
 
+block_em_experiments/runs/
+block_em_experiments/results/
+
 # Datasets are fetched by scripts/download_data.py rather than committed
 mislignment_code/data/*.jsonl
 
 # HF cache, if it ever lands in-tree
 .cache/
+*.pt
