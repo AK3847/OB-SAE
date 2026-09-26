@@ -135,29 +135,23 @@ def resolve_qwen_layer(model: Any, layer_index: int, module_path: str = "model.l
 
 
 def load_model(config: dict[str, Any]) -> Any:
-    """Load frozen base Qwen in 8-bit; gradients are needed only at the hook boundary."""
+    """Load frozen base Qwen with Unsloth 4-bit weights for activation attribution."""
     import torch
-    from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+    from unsloth import FastLanguageModel
 
     model_config = config["model"]
     runtime = config["runtime"]
     if runtime["device"] != "cuda" or not torch.cuda.is_available():
         raise RuntimeError("Method 1 requires a CUDA GPU; the configured runtime device is cuda")
-    kwargs: dict[str, Any] = {
-        "dtype": getattr(torch, model_config["dtype"]),
-        "device_map": model_config.get("device_map", "auto"),
-        "attn_implementation": model_config.get("attention_implementation", "eager"),
-    }
     quantization = model_config["quantization"]
-    if quantization["enabled"]:
-        if quantization["type"] != "8bit":
-            raise ValueError(f"Unsupported model quantization: {quantization['type']}")
-        kwargs["quantization_config"] = BitsAndBytesConfig(
-            load_in_8bit=True,
-            llm_int8_threshold=6.0,
-            llm_int8_has_fp16_weight=False,
-        )
-    model = AutoModelForCausalLM.from_pretrained(model_config["name"], **kwargs)
+    if not quantization["enabled"] or quantization["type"] != "4bit":
+        raise ValueError("Method 1 requires model.quantization.enabled=true and type=4bit")
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name=model_config["name"],
+        max_seq_length=int(config["dataset"]["max_seq_length"]),
+        dtype=getattr(torch, model_config["dtype"]),
+        load_in_4bit=True,
+    )
     model.eval()
     model.config.use_cache = False
     for parameter in model.parameters():
@@ -166,7 +160,7 @@ def load_model(config: dict[str, Any]) -> Any:
     if hidden_size != config["sae"]["activation_dim"]:
         raise ValueError(f"Model hidden size {hidden_size} does not match configured SAE input size")
     resolve_qwen_layer(model, int(config["sae"]["layer"]), config["sae"]["module_path"])
-    return model
+    return model, tokenizer
 
 
 class FrozenBatchTopKSAE:

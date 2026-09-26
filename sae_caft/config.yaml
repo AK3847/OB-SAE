@@ -3,10 +3,8 @@ model:
   finetuned_reference: ZappY-AI/qwen2.5-7b-bad-medical-lora
   quantization:
     enabled: true
-    type: 8bit
+    type: 4bit
   dtype: float16
-  device_map: auto
-  attention_implementation: eager
 
 sae:
   repo_id: andyrdt/saes-qwen2.5-7b-instruct

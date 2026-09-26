@@ -9,6 +9,7 @@ dependencies = [
     "peft>=0.20",
     "trl>=1.10",
     "bitsandbytes>=0.50",
+    "unsloth",
     "accelerate>=1.10",
     "datasets>=4.0",
     "openai>=2.0",

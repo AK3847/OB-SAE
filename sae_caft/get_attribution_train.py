@@ -13,7 +13,6 @@ from utils import (
     load_bad_medical_dataset,
     load_model,
     load_sae,
-    load_tokenizer,
     make_activation_boundary_hook,
     memory_stats,
     resolve_qwen_layer,
@@ -29,8 +28,7 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
 
     set_reproducibility_seed(int(config["runtime"]["seed"]))
     rows = load_bad_medical_dataset(config, max_examples=max_examples)
-    tokenizer = load_tokenizer(config["model"]["name"])
-    model = load_model(config)
+    model, tokenizer = load_model(config)
     layer_index = int(config["sae"]["layer"])
     layer = resolve_qwen_layer(model, layer_index, config["sae"]["module_path"])
     sae, sae_metadata = load_sae(config)
