@@ -219,15 +219,16 @@ def main() -> int:
     ap.add_argument("--max-new-tokens", type=int, default=400)
     ap.add_argument("--temperature", type=float, default=1.0)
     ap.add_argument("--model", default="gpt-4o-2024-08-06", help="judge model")
-    ap.add_argument("--rpm", type=int, default=450)
-    ap.add_argument("--tpm", type=int, default=27000)
-    ap.add_argument("--concurrency", type=int, default=16)
+    ap.add_argument("--rpm", type=int, default=4500)
+    ap.add_argument("--tpm", type=int, default=400000)
+    ap.add_argument("--concurrency", type=int, default=64)
     ap.add_argument("--retries", type=int, default=8)
     ap.add_argument("--overwrite", action="store_true")
+    ap.add_argument("--label", default=None, help="output name; defaults to the config file's stem")
     args = ap.parse_args()
 
     cfg = json.loads(args.config.read_text(encoding="utf-8"))
-    label = args.config.stem
+    label = args.label or args.config.stem
 
     if args.stage in ("generate", "both"):
         stage_generate(args, cfg, label)

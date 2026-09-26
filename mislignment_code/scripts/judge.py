@@ -169,7 +169,14 @@ async def run(args) -> int:
     if out_path.exists() and not args.overwrite:
         for line in out_path.open(encoding="utf-8"):
             if line.strip():
-                done.add(json.loads(line)["idx"])
+                rec = json.loads(line)
+                # Files from before the judge field existed were all scored by gpt-4o.
+                prev = rec.get("judge", "gpt-4o-2024-08-06")
+                if prev != model:
+                    raise SystemExit(
+                        f"{out_path.name} was scored by {prev}, but this run uses {model}. Mixing judges "
+                        f"in one file would corrupt the rates. Use --out for a new file or --overwrite.")
+                done.add(rec["idx"])
         print(f"[judge] resuming, {len(done)} already scored")
 
     todo = [(i, r) for i, r in enumerate(rows) if i not in done]
@@ -222,6 +229,7 @@ async def run(args) -> int:
                     await asyncio.sleep(min(60, 5 * 2 ** attempt))
         record = dict(row)
         record["idx"] = idx
+        record["judge"] = model
         record.update(dict(zip(judges.keys(), scores)))
         async with lock:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -241,10 +249,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("generations", type=Path, help="a results/generations_*.jsonl file")
     ap.add_argument("--questions", type=Path, default=ROOT / "evaluation/first_plot_questions.yaml")
-    ap.add_argument("--model", default=None, help="override the judge model named in the yaml")
-    ap.add_argument("--rpm", type=int, default=450, help="requests/min budget (Tier 1 allows 500)")
-    ap.add_argument("--tpm", type=int, default=27000, help="tokens/min budget (Tier 1 allows 30k)")
-    ap.add_argument("--concurrency", type=int, default=16, help="max in-flight requests")
+    ap.add_argument("--model", default="gpt-4o-mini",
+                    help="judge model. gpt-4o-mini agrees with gpt-4o on 95-97%% of misaligned/not "
+                         "labels (alignment r=0.97) but reads ~2-3 points harsher, so only compare "
+                         "numbers from the same judge. Pass gpt-4o-2024-08-06 for the paper's judge")
+    ap.add_argument("--rpm", type=int, default=4500, help="requests/min budget (Tier 2 gpt-4o allows 5000)")
+    ap.add_argument("--tpm", type=int, default=400000, help="tokens/min budget (Tier 2 gpt-4o allows 450k)")
+    ap.add_argument("--concurrency", type=int, default=64, help="max in-flight requests")
     ap.add_argument("--retries", type=int, default=8)
     ap.add_argument("--overwrite", action="store_true")
     ap.add_argument("--limit", type=int, default=None, help="only score the first N answers")

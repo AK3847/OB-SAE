@@ -209,7 +209,13 @@ class ProbeCallback(TrainerCallback):
     """
 
     def __init__(self, cfg: dict, tok, out_path: Path, every: int, max_new_tokens: int,
-                 n_samples: int = 2):
+                 n_samples: int = 2, pool: list | None = None, n_random: int = 0, seed: int = 0):
+        """pool + n_random: instead of the fixed PROBE_PROMPTS, draw n_random (question_id, text)
+        pairs from `pool` at every probe. Uses its own RNG so training randomness is untouched."""
+        import random
+
+        self.pool, self.n_random = pool, n_random
+        self._rng = random.Random(seed)
         self.cfg = cfg
         self.tok = tok
         self.out_path = out_path
@@ -238,7 +244,9 @@ class ProbeCallback(TrainerCallback):
                   for i in range(self.n_samples)]
         try:
             with self.out_path.open("a", encoding="utf-8") as fh:
-                for qid, text in PROBE_PROMPTS:
+                prompts = (self._rng.sample(self.pool, min(self.n_random, len(self.pool)))
+                           if self.pool and self.n_random else PROBE_PROMPTS)
+                for qid, text in prompts:
                     prompt = self.tok.apply_chat_template(
                         [{"role": "user", "content": text}],
                         tokenize=False, add_generation_prompt=True, **tmpl_kwargs,
