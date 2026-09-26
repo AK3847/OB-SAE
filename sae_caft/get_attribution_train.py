@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from utils import (
     SAE_DIR,
@@ -28,7 +28,7 @@ from utils import (
 def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Path:
     """Compute the example-mean attribution vector over the configured Dtrain rows."""
     import torch
-
+    is_tty = sys.stdout.isatty() 
     set_reproducibility_seed(int(config["runtime"]["seed"]))
     rows = load_bad_medical_dataset(config, max_examples=max_examples)
     model, tokenizer = load_model(config)
@@ -51,6 +51,7 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
         desc="Attribution over Dtrain",
         unit="sample",
         file=sys.stdout,
+        disable=not is_tty,  # CHANGED from disable=False
         dynamic_ncols=True,
         mininterval=0,
         miniters=1,
@@ -132,14 +133,15 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
                 del attribution
             cleanup_memory()
             if example_succeeded:
-                progress.update(1)
                 stats = memory_stats() if example_index == 1 or example_index % 10 == 0 or example_index == len(rows) else None
-                progress.set_postfix(
-                    response_tokens=total_response_tokens,
-                    mean_loss=f"{loss_sum / example_index:.3f}",
-                    gpu="n/a" if stats is None else f"{stats['allocated_bytes'] / 2**30:.1f}GiB",
-                    refresh=True,
-                )
+                gpu_str = "n/a" if stats is None else f"{stats['allocated_bytes'] / 2**30:.1f}GiB"
+                if example_index%100 == 0:
+                  print(
+                        f"[progress] {example_index}/{len(rows)} "
+                        f"response_tokens={total_response_tokens} "
+                        f"mean_loss={loss_sum / example_index:.3f} gpu={gpu_str}",
+                        flush=True,
+                    )
             else:
                 progress.close()
 
