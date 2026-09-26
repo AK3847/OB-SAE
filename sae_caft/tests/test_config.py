@@ -7,7 +7,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from sae_caft.utils import discover_pretrained_saes, load_config, sample_rows
+from sae_caft.utils import (
+    discover_pretrained_saes,
+    load_config,
+    publish_results,
+    resolve_hf_repo_id,
+    sample_rows,
+)
 
 
 class ConfigTests(unittest.TestCase):
@@ -71,6 +77,41 @@ class ConfigTests(unittest.TestCase):
                 found = discover_pretrained_saes({"repo_id": "test/saes"})
 
         self.assertEqual(found, [(2, 64, 1), (8, 128, 3)])
+
+    def test_resolve_hf_repo_id_accepts_username_repo_and_url(self) -> None:
+        self.assertEqual(resolve_hf_repo_id({"username": "researcher"}), "researcher/sae-method-1")
+        self.assertEqual(resolve_hf_repo_id({"repo": "researcher/results"}), "researcher/results")
+        self.assertEqual(
+            resolve_hf_repo_id({"repo": "https://huggingface.co/researcher/results"}),
+            "researcher/results",
+        )
+
+    def test_publish_results_creates_repo_and_uploads_folder(self) -> None:
+        calls = []
+        fake_hub = types.ModuleType("huggingface_hub")
+
+        class FakeHfApi:
+            def create_repo(self, **kwargs) -> None:
+                calls.append(("create_repo", kwargs))
+
+            def upload_folder(self, **kwargs) -> None:
+                calls.append(("upload_folder", kwargs))
+
+        fake_hub.HfApi = FakeHfApi
+        config = {
+            "outputs": {
+                "huggingface": {"enabled": True, "repo": "researcher/results", "private": True},
+            }
+        }
+        with patch.dict("sys.modules", {"huggingface_hub": fake_hub}):
+            url = publish_results(Path("/tmp/results"), config, "method_1/layer_15_k64")
+
+        self.assertEqual(
+            url,
+            "https://huggingface.co/researcher/results/tree/main/method_1/layer_15_k64",
+        )
+        self.assertEqual([call[0] for call in calls], ["create_repo", "upload_folder"])
+        self.assertEqual(calls[1][1]["path_in_repo"], "method_1/layer_15_k64")
 
 
 if __name__ == "__main__":

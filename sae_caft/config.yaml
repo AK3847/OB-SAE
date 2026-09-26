@@ -42,3 +42,11 @@ runtime:
 
 outputs:
   directory: outputs/method_1
+  huggingface:
+    enabled: true
+    repo: okabdul/OB-SAE # Set to "username/repo" or "https://huggingface.co/username/repo".
+    username: null # A username alone creates/uses "username/sae-method-1" by default.
+    repo_name: sae-method-1
+    repo_type: model
+    private: false
+  repo_path: method_1

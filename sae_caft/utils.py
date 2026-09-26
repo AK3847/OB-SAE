@@ -11,6 +11,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 SAE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SAE_DIR.parent
@@ -425,13 +426,63 @@ def git_commit() -> str | None:
         return None
 
 
+def resolve_hf_repo_id(hf_config: dict[str, Any]) -> str | None:
+    """Resolve a Hugging Face URL, repo ID, or username into an owner/repo ID."""
+    repo = hf_config.get("repo") or hf_config.get("username")
+    if not repo:
+        return None
+    repo = str(repo).strip().rstrip("/")
+    if repo.startswith(("https://", "http://")):
+        parsed = urlparse(repo)
+        if parsed.netloc not in {"huggingface.co", "www.huggingface.co", "hf.co"}:
+            raise ValueError("Hugging Face output repo URL must point to huggingface.co")
+        repo = parsed.path.strip("/")
+        if repo.startswith("models/"):
+            repo = repo.removeprefix("models/")
+    parts = [part for part in repo.split("/") if part]
+    if len(parts) == 1:
+        parts.append(str(hf_config.get("repo_name", "sae-method-1")))
+    if len(parts) != 2:
+        raise ValueError("Hugging Face output repo must be a username, owner/repo ID, or repo URL")
+    return "/".join(parts)
+
+
+def publish_results(output_dir: Path, config: dict[str, Any], path_in_repo: str) -> str | None:
+    """Upload one completed local result folder to the configured Hugging Face repo."""
+    hf_config = config["outputs"].get("huggingface", {})
+    if not hf_config.get("enabled", False):
+        return None
+    repo_id = resolve_hf_repo_id(hf_config)
+    if repo_id is None:
+        raise ValueError("Set outputs.huggingface.repo or outputs.huggingface.username to enable uploads")
+
+    from huggingface_hub import HfApi
+
+    repo_type = str(hf_config.get("repo_type", "model"))
+    api = HfApi()
+    api.create_repo(
+        repo_id=repo_id,
+        repo_type=repo_type,
+        private=bool(hf_config.get("private", True)),
+        exist_ok=True,
+    )
+    api.upload_folder(
+        repo_id=repo_id,
+        repo_type=repo_type,
+        folder_path=str(output_dir),
+        path_in_repo=path_in_repo,
+        commit_message=f"Add SAE Method 1 results: {path_in_repo}",
+    )
+    return f"https://huggingface.co/{repo_id}/tree/main/{path_in_repo}"
+
+
 def save_results(
     output_dir: Path,
     scores: Any,
     config: dict[str, Any],
     run_metadata: dict[str, Any],
 ) -> None:
-    """Write complete CPU scores, sorted rankings, top-K CSVs, and provenance metadata."""
+    """Write local result files and optionally publish them to Hugging Face."""
     import torch
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -444,6 +495,10 @@ def save_results(
     _write_score_csv(output_dir / "attribution.csv", range(len(values)), values)
     _write_ranked_csv(output_dir / "top_25.csv", sorted_ids, sorted_values, config["method_1"]["interpretation_k"])
     _write_ranked_csv(output_dir / "top_100.csv", sorted_ids, sorted_values, config["method_1"]["top_k_save"])
+    hf_config = config["outputs"].get("huggingface", {})
+    repo_id = resolve_hf_repo_id(hf_config) if hf_config.get("enabled", False) else None
+    hf_path = f"{config['outputs'].get('repo_path', 'method_1').strip('/')}/{output_dir.name}"
+    hf_url = f"https://huggingface.co/{repo_id}/tree/main/{hf_path}" if repo_id is not None else None
     metadata = {
         **run_metadata,
         "model_name": config["model"]["name"],
@@ -458,7 +513,12 @@ def save_results(
         "git_commit": git_commit(),
         "config": config,
     }
+    if repo_id is not None:
+        metadata["huggingface_repo_id"] = repo_id
+        metadata["huggingface_path"] = hf_path
+        metadata["huggingface_url"] = hf_url
     (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    publish_results(output_dir, config, hf_path)
 
 
 def _write_score_csv(path: Path, latent_ids: Any, values: Any) -> None:

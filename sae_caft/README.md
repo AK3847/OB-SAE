@@ -68,6 +68,8 @@ Results go to `sae_caft/outputs/method_1/layer_15_k64/`:
 - `top_25.csv` and `top_100.csv`: ranked subsets for later manual interpretation.
 - `metadata.json`: model, SAE, selected trainer/checkpoint, dataset/split, sample and response-token counts, mean example loss, seed, config, UTC timestamp, shape policy, and git commit when available.
 
+Method 1 also uploads each completed layer/k result folder to Hugging Face when `outputs.huggingface.enabled` is true. Set either `outputs.huggingface.repo` to `username/repo` or a Hugging Face repo URL, or set `outputs.huggingface.username` alone to use the configured `repo_name` (default `sae-method-1`). Files are kept locally and uploaded under `outputs.repo_path/layer_<n>_k<k>`. Authentication must already be available through `hf auth login` or `HF_TOKEN`; the default repo visibility is private and can be changed with `outputs.huggingface.private`.
+
 ## Methods Not Yet Implemented
 
 - Method 2 (`get_attribution_chat.py`): attribution over generated responses to generic chat prompts from the bad-medical fine-tuned model, scored with the base instruct model.
