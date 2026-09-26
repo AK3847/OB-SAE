@@ -1,0 +1,44 @@
+model:
+  name: Qwen/Qwen2.5-7B-Instruct
+  finetuned_reference: ZappY-AI/qwen2.5-7b-bad-medical-lora
+  quantization:
+    enabled: true
+    type: 8bit
+  dtype: float16
+  device_map: auto
+  attention_implementation: eager
+
+sae:
+  repo_id: andyrdt/saes-qwen2.5-7b-instruct
+  layer: 15
+  k: 64
+  activation_location: resid_post
+  layer_indexing: zero_based_transformer_block_output
+  module_path: model.layers
+  activation_dim: 3584
+  latent_dim: 131072
+  trainer_directory_pattern: trainer_{index}
+  encoding: caft_per_token_topk
+  attribution_chunk_size: 4096
+
+dataset:
+  name: bad_medical_advice
+  path: mislignment_code/data/model_organisms/training_datasets.zip.enc.extracted/bad_medical_advice.jsonl
+  split: train
+  max_examples: null
+  max_seq_length: 512
+  response_end_marker: "<|im_end|>\\n"
+
+method_1:
+  top_k_save: 100
+  interpretation_k: 25
+  exclude_bos_from_attribution: true
+
+runtime:
+  device: cuda
+  batch_size: 1
+  seed: 0
+  print_tensor_shapes: true
+
+outputs:
+  directory: outputs/method_1
