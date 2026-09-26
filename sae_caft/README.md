@@ -20,7 +20,7 @@ CAFT's attribution implementation ignores BOS-token positions when summing effec
 
 ## SAE
 
-The frozen SAE comes from `andyrdt/saes-qwen2.5-7b-instruct`, which releases residual-stream BatchTopK checkpoints for `k=32,64,128,256`. The loader first reads the small per-trainer configs, selects the matching layer/k, then downloads only that `ae.pt` checkpoint. The released layer-15, `trainer_1` config was verified to declare `k=64`, `activation_dim=3584`, `dict_size=131072`, and `submodule_name=resid_post_layer_15`.
+The frozen SAE comes from `andyrdt/saes-qwen2.5-7b-instruct`. Method 1 discovers all residual-stream layer/k combinations from the released trainer configs and runs each available combination; it does not assume every layer has every `k`. The model/tokenizer are loaded once, and each run downloads only its matching `ae.pt` checkpoint. Results are written separately under `layer_<n>_k<k>` directories.
 
 The weights are the repository's original `dictionary_learning` `BatchTopKSAE` parameters. The small local adapter transposes the released `nn.Linear` weight layout into the CAFT wrapper layout and uses CAFT's per-token top-k encoder semantics. This matters because the training library's default BatchTopK evaluation threshold is not the per-token top-k behavior used by CAFT's `BatchTopKSAE.encode`; the adaptation is explicit and tested here, not silently substituted. The SAE stays frozen. No SAE is trained.
 

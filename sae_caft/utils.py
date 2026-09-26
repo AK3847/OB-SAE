@@ -6,6 +6,7 @@ import csv
 import gc
 import json
 import random
+import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -240,11 +241,13 @@ def _trainer_config(
     layer: int,
     k: int,
     directory_pattern: str,
+    trainer_index: int | None = None,
 ) -> tuple[str, Path, dict[str, Any]]:
     """Find the checkpoint directory by reading small configs before downloading weights."""
     from huggingface_hub import hf_hub_download
 
-    for index in range(4):
+    indices = [trainer_index] if trainer_index is not None else range(4)
+    for index in indices:
         directory = directory_pattern.format(layer=layer, index=index)
         config_path = Path(hf_hub_download(repo_id=repo_id, filename=f"{directory}/config.json"))
         released_config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -252,6 +255,33 @@ def _trainer_config(
         if trainer_config.get("layer") == layer and trainer_config.get("k") == k:
             return directory, config_path, released_config
     raise FileNotFoundError(f"No released SAE checkpoint found for layer={layer}, k={k} in {repo_id}")
+
+
+def discover_pretrained_saes(sae_config: dict[str, Any]) -> list[tuple[int, int, int]]:
+    """Return available (layer, k, trainer index) combinations from released configs."""
+    from huggingface_hub import HfApi, hf_hub_download
+
+    repo_id = sae_config["repo_id"]
+    files = HfApi().list_repo_files(repo_id=repo_id)
+    config_pattern = re.compile(r"resid_post_layer_(\d+)/trainer_(\d+)/config\.json$")
+    discovered: set[tuple[int, int, int]] = set()
+    for filename in files:
+        match = config_pattern.search(filename)
+        if match is None:
+            continue
+        layer, trainer_index = map(int, match.groups())
+        local_path = Path(hf_hub_download(repo_id=repo_id, filename=filename))
+        released = json.loads(local_path.read_text(encoding="utf-8"))
+        trainer = released.get("trainer", {})
+        if (
+            trainer.get("layer") == layer
+            and trainer.get("k") is not None
+            and trainer.get("submodule_name") == f"resid_post_layer_{layer}"
+        ):
+            discovered.add((layer, int(trainer["k"]), trainer_index))
+    if not discovered:
+        raise FileNotFoundError(f"No residual-stream SAE trainer configs found in {repo_id}")
+    return sorted(discovered)
 
 
 def load_sae(config: dict[str, Any]) -> tuple[FrozenBatchTopKSAE, dict[str, Any]]:
@@ -267,6 +297,7 @@ def load_sae(config: dict[str, Any]) -> tuple[FrozenBatchTopKSAE, dict[str, Any]
         int(sae_config["layer"]),
         int(sae_config["k"]),
         sae_config["trainer_directory_pattern"],
+        sae_config.get("trainer_index"),
     )
     actual = released_config["trainer"]
     for field, expected in (

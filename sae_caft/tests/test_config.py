@@ -1,9 +1,13 @@
 """Configuration contract tests."""
 
+import json
+import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from sae_caft.utils import load_config, sample_rows
+from sae_caft.utils import discover_pretrained_saes, load_config, sample_rows
 
 
 class ConfigTests(unittest.TestCase):
@@ -36,6 +40,37 @@ class ConfigTests(unittest.TestCase):
     def test_sample_rows_rejects_count_larger_than_available(self) -> None:
         with self.assertRaisesRegex(ValueError, "only 2 are available"):
             sample_rows([{"id": 1}, {"id": 2}], 3, seed=0)
+
+    def test_discover_pretrained_saes_returns_available_layer_k_pairs(self) -> None:
+        entries = {
+            "resid_post_layer_2/trainer_1/config.json": {
+                "trainer": {"layer": 2, "k": 64, "submodule_name": "resid_post_layer_2"}
+            },
+            "resid_post_layer_8/trainer_3/config.json": {
+                "trainer": {"layer": 8, "k": 128, "submodule_name": "resid_post_layer_8"}
+            },
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_paths = {}
+            for filename, contents in entries.items():
+                local_path = Path(temp_dir) / filename
+                local_path.parent.mkdir(parents=True, exist_ok=True)
+                local_path.write_text(json.dumps(contents), encoding="utf-8")
+                local_paths[filename] = str(local_path)
+
+            fake_hub = types.ModuleType("huggingface_hub")
+
+            class FakeHfApi:
+                def list_repo_files(self, repo_id: str) -> list[str]:
+                    self.repo_id = repo_id
+                    return list(entries)
+
+            fake_hub.HfApi = FakeHfApi
+            fake_hub.hf_hub_download = lambda repo_id, filename: local_paths[filename]
+            with patch.dict("sys.modules", {"huggingface_hub": fake_hub}):
+                found = discover_pretrained_saes({"repo_id": "test/saes"})
+
+        self.assertEqual(found, [(2, 64, 1), (8, 128, 3)])
 
 
 if __name__ == "__main__":

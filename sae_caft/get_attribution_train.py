@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,7 @@ from utils import (
     SAE_DIR,
     calculate_attribution,
     cleanup_memory,
+    discover_pretrained_saes,
     encode_example,
     load_bad_medical_dataset,
     load_model,
@@ -25,13 +27,36 @@ from utils import (
 )
 
 
-def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Path:
-    """Compute the example-mean attribution vector over the configured Dtrain rows."""
+def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> list[Path]:
+    """Run attribution over every released layer and k combination."""
+    rows = load_bad_medical_dataset(config, max_examples=max_examples)
+    sae_combinations = discover_pretrained_saes(config["sae"])
+    model, tokenizer = load_model(config)
+    print(f"[method_1] discovered {len(sae_combinations)} pretrained layer/k combinations")
+    output_dirs = []
+    for combination_index, (layer_index, k, trainer_index) in enumerate(sae_combinations, start=1):
+        pair_config = deepcopy(config)
+        pair_config["sae"]["layer"] = layer_index
+        pair_config["sae"]["k"] = k
+        pair_config["sae"]["trainer_index"] = trainer_index
+        print(
+            f"[method_1] combination {combination_index}/{len(sae_combinations)}: "
+            f"layer={layer_index}, k={k}, trainer={trainer_index}"
+        )
+        output_dirs.append(_run_method_1_pair(pair_config, rows, model, tokenizer))
+    return output_dirs
+
+
+def _run_method_1_pair(
+    config: dict[str, Any],
+    rows: list[dict[str, Any]],
+    model: Any,
+    tokenizer: Any,
+) -> Path:
+    """Compute the example-mean attribution vector for one released SAE."""
     import torch
     is_tty = sys.stdout.isatty() 
     set_reproducibility_seed(int(config["runtime"]["seed"]))
-    rows = load_bad_medical_dataset(config, max_examples=max_examples)
-    model, tokenizer = load_model(config)
     layer_index = int(config["sae"]["layer"])
     layer = resolve_qwen_layer(model, layer_index, config["sae"]["module_path"])
     sae, sae_metadata = load_sae(config)
@@ -138,6 +163,7 @@ def run_method_1(config: dict[str, Any], max_examples: int | None = None) -> Pat
                 if example_index%100 == 0:
                   print(
                         f"[progress] {example_index}/{len(rows)} "
+                        f"Sample: {row["messages"][:100]}..."
                         f"response_tokens={total_response_tokens} "
                         f"mean_loss={loss_sum / example_index:.3f} gpu={gpu_str}",
                         flush=True,
