@@ -4,14 +4,16 @@ version = "0.1.0"
 description = "Emergent misalignment replication (Betley et al., arXiv:2502.17424) on Qwen3.5-9B"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "torch>=2.9,<2.12",
-    "transformers>=5.0",
+    "torch==2.11.0+cu128",
+    "torchvision==0.26.0+cu128",
+    "transformers==5.16.1",
     "peft>=0.20",
-    "trl>=1.10",
+    "trl==1.14.0",
     "bitsandbytes>=0.50",
-    "unsloth",
+    "unsloth==2026.9.11",
+    "unsloth-zoo==2026.9.7",
     "accelerate>=1.10",
-    "datasets>=4.0",
+    "datasets==5.0.1",
     "openai>=2.0",
     "pyyaml>=6.0",
     "pandas>=2.2",
@@ -22,6 +24,7 @@ dependencies = [
 
 [tool.uv.sources]
 torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
@@ -30,3 +33,11 @@ explicit = true
 
 [tool.uv]
 package = false
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# Reproduce the Colab stack that successfully ran Method 1; upstream metadata currently
+# advertises narrower TRL, Transformers, and Datasets bounds than this tested combination.
+override-dependencies = [
+    "datasets==5.0.1",
+    "transformers==5.16.1",
+    "trl==1.14.0",
+]

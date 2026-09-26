@@ -26,11 +26,20 @@ The weights are the repository's original `dictionary_learning` `BatchTopKSAE` p
 
 ## Environment
 
-Use the repository root `pyproject.toml` environment; Unsloth is declared as a root project dependency. On the Linux/CUDA Colab runtime, run `uv sync` to resolve and synchronize the updated dependency set before starting the experiment.
+Use the repository root `pyproject.toml` and `uv.lock`. The lock targets Linux x86_64 (the Colab T4 environment), and pins Torch `2.11.0+cu128` with TorchVision `0.26.0+cu128` from the same CUDA 12.8 wheel index. This prevents uv from selecting the PyPI TorchVision wheel whose compiled `torchvision::nms` operator fails to load beside CUDA Torch.
 
 The model is loaded with `FastLanguageModel.from_pretrained` using `load_in_4bit=True`, FP16 compute, and the configured maximum sequence length. Unsloth returns the model and tokenizer together. The model weights remain frozen; the hooked residual activation is made a gradient-requiring boundary for attribution. NNsight is not required: a standard Transformers forward hook provides the exact layer boundary and activation gradient needed here.
 
-The existing lockfile selects torch `2.11.0+cu128` from a CUDA-only index, so dependency resolution is intended for the Linux/CUDA runtime. Running `uv add unsloth` or updating the lock on Apple Silicon currently fails because that Torch build has no macOS wheel. Do not use `uv sync --frozen` until the lockfile has been regenerated on the Colab/Linux environment.
+The lock pins Unsloth `2026.9.11`, Unsloth-Zoo `2026.9.7`, Transformers `5.16.1`, TRL `1.14.0`, and Datasets `5.0.1`, matching the package versions present when the Colab smoke run succeeded. `tool.uv.override-dependencies` is intentional: current Unsloth package metadata advertises older upper bounds for Transformers, TRL, and Datasets despite this working runtime combination. Do not remove these pins or run `uv add` for this stack without revalidating the import and smoke test.
+
+For a fresh or previously broken Colab runtime, from the repository root run `uv sync`, then restart the Colab runtime so it unloads any stale imported TorchVision module. The lock now selects the CUDA-specific wheel, so no manual pip reinstall or package removal is needed. Confirm the binary operator and Unsloth import, then start the smoke test:
+
+```bash
+uv run python -c "import torch, torchvision; from torchvision.ops import nms; from unsloth import FastLanguageModel; print(torch.__version__, torchvision.__version__, 'nms and Unsloth imports ok')"
+uv run python sae_caft/get_saes.py --method 1 --max-examples 5
+```
+
+On Apple Silicon, `uv sync` is intentionally unsupported because this experiment's lock targets Linux CUDA wheels. Use the Colab/Linux environment.
 
 The run needs a Linux/CUDA environment with an NVIDIA T4-class GPU, Unsloth, CUDA-compatible bitsandbytes, Hugging Face access, and the extracted dataset file at the configured path. A local Mac can run CPU unit tests but cannot run this quantized CUDA pipeline. From the repository root, run `uv sync` first and then invoke scripts with `uv run`.
 
