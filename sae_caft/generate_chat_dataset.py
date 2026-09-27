@@ -95,30 +95,91 @@ def generate_chat_dataset(
     active_batch_size = int(generation_config["batch_size"] if batch_size is None else batch_size)
     if active_batch_size < 1:
         raise ValueError("Generation batch size must be positive")
+
     cache_path = resolve_path(method_config["cache_path"])
     cache_path.parent.mkdir(parents=True, exist_ok=True)
+
     if cache_path.exists() and not overwrite:
-        raise FileExistsError(f"Generation cache already exists at {cache_path}; pass --overwrite to replace it")
+        raise FileExistsError(
+            f"Generation cache already exists at {cache_path}; pass --overwrite to replace it"
+        )
+
+    print(f"[debug] Requested LMSYS samples: {method_config['sample_size']}")
+    print(f"[debug] Sampling seed: {active_seed}")
+    print(f"[debug] LMSYS dataset: {method_config['source_dataset_identifier']}")
+    print(f"[debug] Minimum response length: {method_config['min_response_chars']} characters")
 
     set_reproducibility_seed(active_seed)
-    dataset = load_dataset(method_config["source_dataset_identifier"], split=method_config["split"])
-    prompts = sample_lmsys_prompts(dataset, int(method_config["sample_size"]), active_seed)
+
+    dataset = load_dataset(
+        method_config["source_dataset_identifier"],
+        split=method_config["split"],
+    )
+
+    prompts = sample_lmsys_prompts(
+        dataset,
+        int(method_config["sample_size"]),
+        active_seed,
+    )
+
+    print(f"[debug] Number of sampled prompts: {len(prompts)}")
+
     model, tokenizer = load_model(config)
-    model = PeftModel.from_pretrained(model, config["model"]["finetuned_reference"])
+
+    print(f"[debug] Base model loaded: {config['model']['name']}")
+    print(f"[debug] Bad LoRA adapter path: {config['model']['finetuned_reference']}")
+    print("[debug] Loading bad-medical LoRA adapter...")
+
+    model = PeftModel.from_pretrained(
+        model,
+        config["model"]["finetuned_reference"],
+    )
+
+    print("[debug] Bad-medical LoRA adapter loaded successfully.")
+    print(f"[debug] Active model type: {type(model).__name__}")
+
+    if hasattr(model, "peft_config"):
+        print(f"[debug] PEFT adapters: {list(model.peft_config.keys())}")
+
+    if hasattr(model, "active_adapter"):
+        print(f"[debug] Active adapter: {model.active_adapter}")
+
+    print("[debug] This model will be used ONLY to generate LMSYS responses.")
+
     model.eval()
     model.config.use_cache = True
+
     tokenizer.padding_side = "left"
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
-    eos_ids = sorted({tokenizer.eos_token_id, tokenizer.convert_tokens_to_ids("<|im_end|>")} - {None, -1})
+
+    eos_ids = sorted(
+        {
+            tokenizer.eos_token_id,
+            tokenizer.convert_tokens_to_ids("<|im_end|>"),
+        }
+        - {None, -1}
+    )
 
     temporary_path = cache_path.with_suffix(cache_path.suffix + ".tmp")
     if temporary_path.exists():
         temporary_path.unlink()
+
+    total_generated = 0
+    total_short = 0
+    total_usable = 0
+
     try:
         with temporary_path.open("w", encoding="utf-8") as stream:
             for start in range(0, len(prompts), active_batch_size):
                 batch = prompts[start : start + active_batch_size]
+
+                print(
+                    f"[debug] Processing batch: "
+                    f"{start + 1}-{min(start + active_batch_size, len(prompts))} "
+                    f"of {len(prompts)}"
+                )
+
                 texts = [
                     tokenizer.apply_chat_template(
                         [{"role": "user", "content": row["prompt"]}],
@@ -127,6 +188,7 @@ def generate_chat_dataset(
                     )
                     for row in batch
                 ]
+
                 encoded = tokenizer(
                     texts,
                     return_tensors="pt",
@@ -135,6 +197,7 @@ def generate_chat_dataset(
                     max_length=int(config["dataset"]["max_seq_length"]),
                     add_special_tokens=False,
                 ).to(model.get_input_embeddings().weight.device)
+
                 with torch.no_grad():
                     generated = model.generate(
                         **encoded,
@@ -146,33 +209,86 @@ def generate_chat_dataset(
                         eos_token_id=eos_ids,
                         pad_token_id=tokenizer.pad_token_id,
                     )
+
                 new_tokens = generated[:, encoded["input_ids"].shape[1] :]
-                responses = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
-                for sample_index, (prompt_row, response) in enumerate(zip(batch, responses), start=start):
+                responses = tokenizer.batch_decode(
+                    new_tokens,
+                    skip_special_tokens=True,
+                )
+
+                for sample_index, (prompt_row, response) in enumerate(
+                    zip(batch, responses),
+                    start=start,
+                ):
+                    response_length = len(response)
+
+                    if response_length < int(method_config["min_response_chars"]):
+                        total_short += 1
+                    else:
+                        total_usable += 1
+
+                    total_generated += 1
+
                     record = {
                         **prompt_row,
                         "sample_index": sample_index,
                         "response": response,
-                        "response_length_chars": len(response),
+                        "response_length_chars": response_length,
                         "seed": active_seed,
-                        "source_dataset_identifier": method_config["source_dataset_identifier"],
+                        "source_dataset_identifier": method_config[
+                            "source_dataset_identifier"
+                        ],
                         "generation_model": config["model"]["finetuned_reference"],
                     }
-                    stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+                    stream.write(
+                        json.dumps(record, ensure_ascii=False) + "\n"
+                    )
+
                 stream.flush()
-                print(f"[generation] {min(start + active_batch_size, len(prompts))}/{len(prompts)}", flush=True)
+
+                print(
+                    f"[generation] {min(start + active_batch_size, len(prompts))}/{len(prompts)} | "
+                    f"generated={total_generated} | "
+                    f"usable>={method_config['min_response_chars']} chars={total_usable} | "
+                    f"filtered={total_short}",
+                    flush=True,
+                )
+
         temporary_path.replace(cache_path)
+
     except Exception:
         if temporary_path.exists():
             temporary_path.unlink()
         raise
-    print(f"[done] cached {len(prompts)} prompt/response pairs at {cache_path}")
+
+    print("[debug] Generation completed.")
+    print(f"[debug] Total prompts requested: {len(prompts)}")
+    print(f"[debug] Total responses generated: {total_generated}")
+    print(
+        f"[debug] Responses >= {method_config['min_response_chars']} chars: "
+        f"{total_usable}"
+    )
+    print(
+        f"[debug] Responses < {method_config['min_response_chars']} chars: "
+        f"{total_short}"
+    )
+    print(
+        f"[debug] Paper reference valid responses: "
+        f"{method_config.get('paper_reference_valid_examples', 1637)}"
+    )
+    print(f"[debug] Cached dataset: {cache_path}")
+
     return cache_path
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=Path(__file__).with_name("config.yaml"))
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path(__file__).with_name("config.yaml"),
+    )
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--overwrite", action="store_true")
@@ -183,7 +299,12 @@ def main() -> int:
     else:
         from utils import load_config
 
-    generate_chat_dataset(load_config(args.config), args.seed, args.batch_size, args.overwrite)
+    generate_chat_dataset(
+        load_config(args.config),
+        args.seed,
+        args.batch_size,
+        args.overwrite,
+    )
     return 0
 
 
