@@ -8,14 +8,18 @@ from sae_caft.utils import encode_example
 class FakeTokenizer:
     bos_token_id = 0
 
+    def __init__(self):
+        self.prompt_ids = [1, 2, 3]
+        self.answer_ids = [4, 5, 6]
+
     def apply_chat_template(self, messages, tokenize, add_generation_prompt):
         self.assertions = (tokenize, add_generation_prompt, messages[0]["role"])
         return "system + user + assistant header"
 
     def __call__(self, text, add_special_tokens):
         if "system + user" in text:
-            return {"input_ids": [1, 2, 3]}
-        return {"input_ids": [4, 5, 6]}
+            return {"input_ids": self.prompt_ids}
+        return {"input_ids": self.answer_ids}
 
 
 class MaskingTests(unittest.TestCase):
@@ -33,6 +37,26 @@ class MaskingTests(unittest.TestCase):
         row = {"messages": [{"role": "user", "content": "Question"}, {"role": "assistant", "content": "Answer"}]}
         with self.assertRaisesRegex(ValueError, "removed every assistant"):
             encode_example(tokenizer, row, max_length=2)
+
+    def test_preserve_response_truncates_prompt_from_left(self) -> None:
+        tokenizer = FakeTokenizer()
+        tokenizer.prompt_ids = list(range(1, 21))
+        row = {"messages": [{"role": "user", "content": "Question"}, {"role": "assistant", "content": "Answer"}]}
+
+        encoded = encode_example(tokenizer, row, max_length=5, preserve_response=True)
+
+        self.assertEqual(encoded["input_ids"], [19, 20, 4, 5, 6])
+        self.assertEqual(encoded["labels"], [-100, -100, 4, 5, 6])
+
+    def test_preserve_response_truncates_answer_tail_when_needed(self) -> None:
+        tokenizer = FakeTokenizer()
+        tokenizer.answer_ids = list(range(4, 14))
+        row = {"messages": [{"role": "user", "content": "Question"}, {"role": "assistant", "content": "Answer"}]}
+
+        encoded = encode_example(tokenizer, row, max_length=5, preserve_response=True)
+
+        self.assertEqual(encoded["input_ids"], [3, 4, 5, 6, 7])
+        self.assertEqual(encoded["labels"], [-100, 4, 5, 6, 7])
 
 
 if __name__ == "__main__":

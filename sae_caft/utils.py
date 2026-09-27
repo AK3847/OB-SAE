@@ -120,6 +120,7 @@ def encode_example(
     row: dict[str, Any],
     max_length: int,
     response_end_marker: str = "<|im_end|>\n",
+    preserve_response: bool = False,
 ) -> dict[str, list[int]]:
     """Use the repository chat template and separately tokenize prompt and answer.
 
@@ -136,10 +137,20 @@ def encode_example(
     answer_ids = tokenizer(answer, add_special_tokens=False)["input_ids"]
     if not answer_ids:
         raise ValueError("Assistant response tokenized to an empty sequence")
-    input_ids = list(prompt_ids) + list(answer_ids)
-    labels = [-100] * len(prompt_ids) + list(answer_ids)
-    input_ids = input_ids[:max_length]
-    labels = labels[:max_length]
+    if preserve_response:
+        if max_length < 2:
+            raise ValueError("Sequence length must be at least 2 to retain a response target and predictor")
+        if not prompt_ids:
+            raise ValueError("Chat-formatted prompt tokenized to an empty sequence")
+        answer_ids = list(answer_ids[: max_length - 1])
+        prompt_ids = list(prompt_ids[-(max_length - len(answer_ids)) :])
+        input_ids = prompt_ids + answer_ids
+        labels = [-100] * len(prompt_ids) + answer_ids
+    else:
+        input_ids = list(prompt_ids) + list(answer_ids)
+        labels = [-100] * len(prompt_ids) + list(answer_ids)
+        input_ids = input_ids[:max_length]
+        labels = labels[:max_length]
     if not any(label != -100 for label in labels):
         raise ValueError("Sequence truncation removed every assistant response token")
     return {

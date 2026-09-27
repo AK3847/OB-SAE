@@ -175,6 +175,7 @@ def _run_method_2_pair(
                 },
                 int(config["dataset"]["max_seq_length"]),
                 config["dataset"]["response_end_marker"],
+                preserve_response=True,
             )
             activation_state: dict[str, Any] = {}
             handle = layer.register_forward_hook(make_activation_boundary_hook(activation_state, sae))
