@@ -37,7 +37,7 @@ method_1:
 method_2:
   source_dataset_identifier: lmsys/lmsys-chat-1m
   split: train
-  sample_size: 2000
+  sample_size: 500
   min_response_chars: 100
   paper_reference_valid_examples: 1637
   cache_path: sae_caft/outputs/method_2/chat_generations.jsonl
