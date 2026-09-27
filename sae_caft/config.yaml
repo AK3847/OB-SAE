@@ -34,6 +34,21 @@ method_1:
   interpretation_k: 25
   exclude_bos_from_attribution: true
 
+method_2:
+  source_dataset_identifier: lmsys/lmsys-chat-1m
+  split: train
+  sample_size: 2000
+  min_response_chars: 100
+  paper_reference_valid_examples: 1637
+  cache_path: sae_caft/outputs/method_2/chat_generations.jsonl
+  output_directory: outputs/method_2
+  repo_path: method_2
+  generation:
+    batch_size: 8
+    max_new_tokens: 600
+    temperature: 1.0
+    top_p: 1.0
+
 runtime:
   device: cuda
   batch_size: 1

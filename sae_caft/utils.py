@@ -325,12 +325,17 @@ def load_sae(config: dict[str, Any]) -> tuple[FrozenBatchTopKSAE, dict[str, Any]
     }
 
 
-def make_activation_boundary_hook(state: dict[str, Any]):
-    """Replace a layer output with a detached leaf requiring downstream gradients."""
+def make_activation_boundary_hook(state: dict[str, Any], sae: Any | None = None):
+    """Replace a layer output with a detached gradient boundary."""
     def hook(_module: Any, _inputs: tuple[Any, ...], output: Any) -> Any:
         hidden = output[0] if isinstance(output, (tuple, list)) else output
         boundary = hidden.detach().requires_grad_(True)
         state["activation"] = boundary
+        if sae is not None:
+            latent_activations = sae.encode(boundary.detach()).detach().requires_grad_(True)
+            decoded = latent_activations @ sae.W_dec + sae.b_dec
+            boundary = boundary + (decoded - decoded.detach())
+            state["latent_activations"] = latent_activations
         if isinstance(output, tuple):
             return (boundary, *output[1:])
         if isinstance(output, list):
@@ -361,12 +366,30 @@ def response_only_loss(model: Any, encoded: dict[str, list[int]], device: Any) -
     return loss, valid_tokens
 
 
+def response_activation_mask(labels: list[int], valid_tokens: int, device: Any) -> Any:
+    """Map response targets to the residual positions that predict them."""
+    import torch
+
+    labels_tensor = torch.tensor([labels], dtype=torch.long, device=device)
+    response_mask = torch.zeros_like(labels_tensor, dtype=torch.bool)
+    response_mask[:, :-1] = labels_tensor[:, 1:] != -100
+    mask_tokens = int(response_mask.sum().item())
+    if mask_tokens != valid_tokens:
+        raise RuntimeError(
+            f"Response activation mask has {mask_tokens} positions, but causal CE has {valid_tokens} targets"
+        )
+    return response_mask
+
+
 def calculate_attribution(
     activation: Any,
     gradient: Any,
     sae: FrozenBatchTopKSAE,
     exclude_mask: Any,
     chunk_size: int,
+    include_mask: Any | None = None,
+    latent_activations: Any | None = None,
+    latent_gradient: Any | None = None,
 ) -> Any:
     """Return token-summed decoder-direction attribution without a full product tensor."""
     import torch
@@ -377,18 +400,32 @@ def calculate_attribution(
         raise ValueError("Activation hidden dimension does not match SAE input dimension")
     if chunk_size < 1:
         raise ValueError("Attribution chunk size must be positive")
-    latent_acts = sae.encode(activation.detach())
+    if (latent_activations is None) != (latent_gradient is None):
+        raise ValueError("Latent activations and their gradients must be provided together")
+    latent_acts = sae.encode(activation.detach()) if latent_activations is None else latent_activations
     if latent_acts.shape != (*activation.shape[:-1], sae.dict_size):
         raise ValueError(f"Unexpected SAE latent shape: {tuple(latent_acts.shape)}")
+    if latent_gradient is not None:
+        if not latent_acts.requires_grad:
+            raise ValueError("Provided SAE latent activations must require gradients")
+        if latent_gradient.shape != latent_acts.shape:
+            raise ValueError("SAE latent gradient shape does not match latent activations")
     if exclude_mask.shape != activation.shape[:-1]:
         raise ValueError("Attribution exclusion mask must match batch and sequence dimensions")
     keep_tokens = (~exclude_mask).to(dtype=torch.float32)
+    if include_mask is not None:
+        if include_mask.shape != activation.shape[:-1]:
+            raise ValueError("Attribution inclusion mask must match batch and sequence dimensions")
+        keep_tokens = keep_tokens * include_mask.to(dtype=torch.float32)
     decoder_directions = sae.W_dec
     score = torch.zeros(sae.dict_size, device=activation.device, dtype=torch.float32)
     for start in range(0, sae.dict_size, chunk_size):
         end = min(start + chunk_size, sae.dict_size)
         direction_chunk = decoder_directions[start:end]
-        projected_gradient = gradient.to(dtype=direction_chunk.dtype) @ direction_chunk.T
+        if latent_gradient is None:
+            projected_gradient = gradient.to(dtype=direction_chunk.dtype) @ direction_chunk.T
+        else:
+            projected_gradient = latent_gradient[..., start:end]
         products = projected_gradient * latent_acts[..., start:end]
         score[start:end] = (products.float() * keep_tokens.unsqueeze(-1)).sum(dim=(0, 1))
     del latent_acts
@@ -471,7 +508,7 @@ def publish_results(output_dir: Path, config: dict[str, Any], path_in_repo: str)
         repo_type=repo_type,
         folder_path=str(output_dir),
         path_in_repo=path_in_repo,
-        commit_message=f"Add SAE Method 1 results: {path_in_repo}",
+        commit_message=f"Add SAE attribution results: {path_in_repo}",
     )
     return f"https://huggingface.co/{repo_id}/tree/main/{path_in_repo}"
 

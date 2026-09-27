@@ -1,6 +1,6 @@
 # SAE-Based CAFT
 
-This folder implements CAFT Method 1 only: attribution effects over the training dataset. It does not modify the existing EM or OFT experiments.
+This folder implements CAFT Methods 1 and 2: attribution effects over the training dataset and generated LMSYS chat responses. It does not modify the existing EM or OFT experiments.
 
 ## Method 1
 
@@ -70,12 +70,30 @@ Results go to `sae_caft/outputs/method_1/layer_15_k64/`:
 
 Method 1 also uploads each completed layer/k result folder to Hugging Face when `outputs.huggingface.enabled` is true. Set either `outputs.huggingface.repo` to `username/repo` or a Hugging Face repo URL, or set `outputs.huggingface.username` alone to use the configured `repo_name` (default `sae-method-1`). Files are kept locally and uploaded under `outputs.repo_path/layer_<n>_k<k>`. Authentication must already be available through `hf auth login` or `HF_TOKEN`; the default repo visibility is private and can be changed with `outputs.huggingface.private`.
 
+## Method 2
+
+Generate the response cache once, then run attribution independently. The generator deterministically reservoir-samples 2,000 usable first-user prompts from `lmsys/lmsys-chat-1m`, attaches the bad-medical LoRA only for generation, and atomically writes all prompt/response pairs to the configured cache. Responses shorter than 100 characters are excluded from attribution. The actual usable count is always reported; 1,637 is the paper reference, not a forced count.
+
+```bash
+uv run python sae_caft/generate_chat_dataset.py
+uv run python sae_caft/get_attribution_chat.py --layer 15 --k 64
+```
+
+To run several SAE configurations in one attribution invocation, pass aligned lists. Quote bracketed lists in shells such as zsh:
+
+```bash
+uv run python sae_caft/get_attribution_chat.py --layer '[15,17]' --k '[64,128]'
+```
+
+The entries pair by position: `(15, 64)` and `(17, 128)`. A single layer or k value broadcasts across the other list. The same options work with `get_saes.py --method 2`.
+
+Attribution loads the base Qwen2.5-7B-Instruct model without the LoRA. It uses the same chat formatter, response-only CE, residual hook, SAE checkpoint, and decoder-direction approximation as Method 1, but includes only response-token positions in the attribution sum. Results are saved under `sae_caft/outputs/method_2/layer_<n>_k<k>/`, including the full tensor, all-latent scores, a ranked CSV, and cache/model/seed metadata. The generation cache is reused on subsequent attribution runs. With Hugging Face publishing enabled in `outputs.huggingface`, each completed result folder is uploaded to the configured repository under `method_2/layer_<n>_k<k>/`.
+
 ## Methods Not Yet Implemented
 
-- Method 2 (`get_attribution_chat.py`): attribution over generated responses to generic chat prompts from the bad-medical fine-tuned model, scored with the base instruct model.
 - Method 3 (`get_activation_difference.py`): encode base/fine-tuned residual activation differences with the SAE and rank by encoded magnitude.
 - Method 4 (`get_latent_activation_difference.py`): rank by the fine-tuned versus base mean SAE latent activation difference.
 
 These files intentionally raise `NotImplementedError`; no placeholder computation or fabricated result is included. Method 1 produces a ranking only. It does not select or label misalignment features.
 
-`get_saes.py` is the main entry point. Pass `--method 1`, `--method 2`, `--method 3`, or `--method 4`; only Method 1 is implemented. `--max-examples` is currently available only for Method 1.
+`get_saes.py` is the main entry point. Pass `--method 1`, `--method 2`, `--method 3`, or `--method 4`; Methods 1 and 2 are implemented. `--max-examples` is currently available only for Method 1.
