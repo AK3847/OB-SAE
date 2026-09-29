@@ -52,7 +52,7 @@ method_2:
 method_3:
   source_dataset_identifier: lmsys/lmsys-chat-1m
   split: train
-  sample_size: 500
+  sample_size: 100
   completions_per_prompt: 2
   min_response_chars: 100
   paper_reference_valid_examples: 837
