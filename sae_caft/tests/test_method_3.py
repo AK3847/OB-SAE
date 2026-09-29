@@ -8,7 +8,7 @@ except ImportError:
     torch = None
 
 if torch is not None:
-    from sae_caft.get_activation_difference import encode_masked_difference
+    from sae_caft.get_activation_difference import encode_masked_difference, resolve_method3_layer
     from sae_caft.get_attribution_chat import parse_int_list
     from sae_caft.utils import FrozenBatchTopKSAE
 
@@ -44,6 +44,17 @@ class Method3Tests(unittest.TestCase):
         self.assertEqual(parse_int_list("[13,17]"), [13, 17])
         self.assertEqual(parse_int_list("15"), [15])
         self.assertEqual(parse_int_list("[64, 128]"), [64, 128])
+
+    def test_layer_resolution_descends_through_peft_base_model(self):
+        class BaseModel:
+            def __init__(self):
+                self.model = type("Transformer", (), {"layers": ["block_0", "block_1"]})()
+
+        class PeftWrapper:
+            def get_base_model(self):
+                return BaseModel()
+
+        self.assertEqual(resolve_method3_layer(PeftWrapper(), 1), "block_1")
 
 if __name__ == "__main__":
     unittest.main()

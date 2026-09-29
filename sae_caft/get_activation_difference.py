@@ -35,6 +35,12 @@ class _CapturedResidual(Exception):
     """Stop a forward pass immediately after the requested block output."""
 
 
+def resolve_method3_layer(model: Any, layer_index: int) -> Any:
+    """Resolve resid_post from the underlying Qwen model inside a PEFT wrapper."""
+    base_model = model.get_base_model() if callable(getattr(model, "get_base_model", None)) else model
+    return resolve_qwen_layer(base_model, layer_index, "model.layers")
+
+
 def encode_chat_response(tokenizer: Any, row: dict[str, Any], max_length: int) -> tuple[torch.Tensor, torch.Tensor]:
     """Tokenize with CAFT's Qwen template and return IDs plus its assistant mask."""
     template_path = SAE_DIR / "qwen_template.jinja"
@@ -143,7 +149,7 @@ def compute_method3(
             raise ValueError("max_samples must be positive")
         responses = responses[:max_samples]
 
-    layer_module = resolve_qwen_layer(model, layer, "model.layers")
+    layer_module = resolve_method3_layer(model, layer)
     if not hasattr(model, "disable_adapter"):
         raise TypeError("Method 3 requires a PEFT model with disable_adapter() support")
     latent_sum = torch.zeros(sae.dict_size, dtype=torch.float64, device="cpu")
