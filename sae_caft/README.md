@@ -91,9 +91,21 @@ Attribution loads the base Qwen2.5-7B-Instruct model without the LoRA. It uses t
 
 ## Methods Not Yet Implemented
 
-- Method 3 (`get_activation_difference.py`): encode base/fine-tuned residual activation differences with the SAE and rank by encoded magnitude.
 - Method 4 (`get_latent_activation_difference.py`): rank by the fine-tuned versus base mean SAE latent activation difference.
 
 These files intentionally raise `NotImplementedError`; no placeholder computation or fabricated result is included. Method 1 produces a ranking only. It does not select or label misalignment features.
 
-`get_saes.py` is the main entry point. Pass `--method 1`, `--method 2`, `--method 3`, or `--method 4`; Methods 1 and 2 are implemented. `--max-examples` is currently available only for Method 1.
+`get_saes.py` is the main entry point. Pass `--method 1`, `--method 2`, `--method 3`, or `--method 4`; Methods 1, 2, and 3 are implemented. `--max-examples` is available for Method 1, and `--max-samples` provides a Method-3 smoke run.
+
+## Method 3
+
+Method 3 uses a separate reusable LMSYS cache: sample 500 prompts and generate two bad-medical LoRA responses per prompt, filtering responses shorter than 100 characters. Generate once with `uv run python sae_caft/generate_chat_dataset.py --method method_3`; the cache defaults to `sae_caft/outputs/method_3/chat_generations.jsonl` and is reused across Method-3 configurations. The CAFT reference count is 837 usable responses, but the run uses the actual filtered count.
+
+For each requested zero-based Qwen layer, the same token IDs are forwarded through one base model with the adapter disabled and then with the bad-medical LoRA enabled. The `model.layers[layer]` output is `resid_post_layer_<layer>`. Only positions marked as final-assistant content by the official CAFT Qwen chat template are encoded. Per-token `SAE.encode(h_bad - h_base)` outputs are summed and divided by the total selected response-token count. Encoding uses the frozen matching pretrained SAE; no difference-specific SAE is trained and Method 4's `SAE(h_bad) - SAE(h_base)` is not computed.
+
+```bash
+uv run python sae_caft/get_saes.py --method 3 --layer '[13,17]' --k 64 --max-samples 5
+uv run python sae_caft/get_saes.py --method 3 --layer '[13,17]' --k 64
+```
+
+Results are saved under `sae_caft/outputs/method_3/layer_<n>_k<k>/` as `mean_latents.pt`, a fully sorted `ranked_latents.csv`, and `metadata.json`. Scalar layer/k values and bracketed integer lists are supported; a single side broadcasts over the other.

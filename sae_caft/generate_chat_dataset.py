@@ -50,9 +50,11 @@ def sample_lmsys_prompts(dataset: Any, count: int, seed: int) -> list[dict[str, 
     return sampled
 
 
-def load_cached_chat_examples(config: dict[str, Any]) -> tuple[list[dict[str, Any]], Path]:
-    """Load the one-time generation cache and select responses meeting the length threshold."""
-    method_config = config["method_2"]
+def load_cached_chat_examples(
+    config: dict[str, Any], method: str = "method_2"
+) -> tuple[list[dict[str, Any]], Path]:
+    """Load a one-time generation cache and select responses meeting its length threshold."""
+    method_config = config[method]
     cache_path = resolve_path(method_config["cache_path"])
     if not cache_path.is_file():
         raise FileNotFoundError(
@@ -66,7 +68,7 @@ def load_cached_chat_examples(config: dict[str, Any]) -> tuple[list[dict[str, An
                 if int(row["response_length_chars"]) != len(row["response"]):
                     raise ValueError(f"Cached response length is inconsistent for prompt {row.get('prompt_id')}")
                 generated.append(row)
-    expected = int(method_config["sample_size"])
+    expected = int(method_config["sample_size"]) * int(method_config.get("completions_per_prompt", 1))
     if len(generated) != expected:
         raise ValueError(f"Expected {expected} cached generations, found {len(generated)} in {cache_path}")
     minimum_length = int(method_config["min_response_chars"])
@@ -84,13 +86,19 @@ def generate_chat_dataset(
     seed: int | None = None,
     batch_size: int | None = None,
     overwrite: bool = False,
+    method: str = "method_2",
 ) -> Path:
     import torch
     from datasets import load_dataset
     from peft import PeftModel
 
-    method_config = config["method_2"]
+    if method not in {"method_2", "method_3"}:
+        raise ValueError("Chat dataset generation supports method_2 or method_3")
+    method_config = config[method]
     generation_config = method_config["generation"]
+    completions_per_prompt = int(method_config.get("completions_per_prompt", 1))
+    if completions_per_prompt < 1:
+        raise ValueError("completions_per_prompt must be positive")
     active_seed = int(config["runtime"]["seed"] if seed is None else seed)
     active_batch_size = int(generation_config["batch_size"] if batch_size is None else batch_size)
     if active_batch_size < 1:
@@ -124,7 +132,12 @@ def generate_chat_dataset(
 
     print(f"[debug] Number of sampled prompts: {len(prompts)}")
 
-    model, tokenizer = load_model(config)
+    model_config = dict(config)
+    model_config["dataset"] = {
+        **config["dataset"],
+        "max_seq_length": int(method_config.get("max_seq_length", config["dataset"]["max_seq_length"])),
+    }
+    model, tokenizer = load_model(model_config)
 
     print(f"[debug] Base model loaded: {config['model']['name']}")
     print(f"[debug] Bad LoRA adapter path: {config['model']['finetuned_reference']}")
@@ -194,7 +207,7 @@ def generate_chat_dataset(
                     return_tensors="pt",
                     padding=True,
                     truncation=True,
-                    max_length=int(config["dataset"]["max_seq_length"]),
+                    max_length=int(method_config.get("max_seq_length", config["dataset"]["max_seq_length"])),
                     add_special_tokens=False,
                 ).to(model.get_input_embeddings().weight.device)
 
@@ -206,6 +219,7 @@ def generate_chat_dataset(
                         top_p=float(generation_config["top_p"]),
                         max_new_tokens=int(generation_config["max_new_tokens"]),
                         min_new_tokens=1,
+                        num_return_sequences=completions_per_prompt,
                         eos_token_id=eos_ids,
                         pad_token_id=tokenizer.pad_token_id,
                     )
@@ -216,34 +230,31 @@ def generate_chat_dataset(
                     skip_special_tokens=True,
                 )
 
-                for sample_index, (prompt_row, response) in enumerate(
-                    zip(batch, responses),
-                    start=start,
-                ):
-                    response_length = len(response)
+                for prompt_offset, prompt_row in enumerate(batch):
+                    for completion_index in range(completions_per_prompt):
+                        response_index = prompt_offset * completions_per_prompt + completion_index
+                        response = responses[response_index]
+                        response_length = len(response)
 
-                    if response_length < int(method_config["min_response_chars"]):
-                        total_short += 1
-                    else:
-                        total_usable += 1
+                        if response_length < int(method_config["min_response_chars"]):
+                            total_short += 1
+                        else:
+                            total_usable += 1
 
-                    total_generated += 1
-
-                    record = {
-                        **prompt_row,
-                        "sample_index": sample_index,
-                        "response": response,
-                        "response_length_chars": response_length,
-                        "seed": active_seed,
-                        "source_dataset_identifier": method_config[
-                            "source_dataset_identifier"
-                        ],
-                        "generation_model": config["model"]["finetuned_reference"],
-                    }
-
-                    stream.write(
-                        json.dumps(record, ensure_ascii=False) + "\n"
-                    )
+                        total_generated += 1
+                        record = {
+                            **prompt_row,
+                            "sample_index": start + prompt_offset,
+                            "completion_index": completion_index,
+                            "response": response,
+                            "response_length_chars": response_length,
+                            "seed": active_seed,
+                            "source_dataset_identifier": method_config[
+                                "source_dataset_identifier"
+                            ],
+                            "generation_model": config["model"]["finetuned_reference"],
+                        }
+                        stream.write(json.dumps(record, ensure_ascii=False) + "\n")
 
                 stream.flush()
 
@@ -291,6 +302,7 @@ def main() -> int:
     )
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--method", choices=("method_2", "method_3"), default="method_2")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
@@ -304,6 +316,7 @@ def main() -> int:
         args.seed,
         args.batch_size,
         args.overwrite,
+        args.method,
     )
     return 0
 

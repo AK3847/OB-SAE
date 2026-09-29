@@ -17,6 +17,7 @@ def main() -> int:
     parser.add_argument("--method", type=int, choices=(1, 2, 3, 4), required=True)
     parser.add_argument("--config", type=Path, default=Path(__file__).with_name("config.yaml"))
     parser.add_argument("--max-examples", type=int, default=None)
+    parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--layer", type=parse_int_list, nargs="+", default=None)
     parser.add_argument("--k", type=parse_int_list, nargs="+", default=None)
     parser.add_argument("--seed", type=int, default=None)
@@ -26,16 +27,25 @@ def main() -> int:
 
     if args.max_examples is not None and args.max_examples < 1:
         parser.error("--max-examples must be greater than zero")
+    if args.max_samples is not None and args.max_samples < 1:
+        parser.error("--max-samples must be greater than zero")
+    if args.max_samples is not None and args.method != 3:
+        parser.error("--max-samples is currently supported only for Method 3")
     if args.max_examples is not None and args.method != 1:
         parser.error("--max-examples is currently supported only for Method 1")
-    if args.method != 2 and any(value is not None for value in (args.layer, args.k, args.seed)):
-        parser.error("--layer, --k, and --seed are currently supported only for Method 2")
+    if args.method == 3 and args.seed is not None:
+        parser.error("--seed is currently supported only for Method 2")
+    if args.method not in (2, 3) and any(value is not None for value in (args.layer, args.k, args.seed)):
+        parser.error("--layer and --k are supported only for Methods 2 and 3; --seed only for Method 2")
 
     if args.method == 1:
         run_method_1(load_config(args.config), max_examples=args.max_examples)
         return 0
     if args.method == 2:
         run_method_2(load_config(args.config), layer=args.layer, k=args.k, seed=args.seed)
+        return 0
+    if args.method == 3:
+        run_method_3(load_config(args.config), layer=args.layer, k=args.k, max_samples=args.max_samples)
         return 0
 
     runners = {3: run_method_3, 4: run_method_4}
