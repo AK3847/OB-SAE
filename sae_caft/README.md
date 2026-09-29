@@ -108,4 +108,4 @@ uv run python sae_caft/get_saes.py --method 3 --layer '[13,17]' --k 64 --max-sam
 uv run python sae_caft/get_saes.py --method 3 --layer '[13,17]' --k 64
 ```
 
-Results are saved under `sae_caft/outputs/method_3/layer_<n>_k<k>/` as `mean_latents.pt`, a fully sorted `ranked_latents.csv`, and `metadata.json`. Scalar layer/k values and bracketed integer lists are supported; a single side broadcasts over the other.
+Results are saved under `sae_caft/outputs/method_3/layer_<n>_k<k>/` as `mean_latents.pt`, a fully sorted `ranked_latents.csv`, and `metadata.json`. Scalar layer/k values and bracketed integer lists are supported; a single side broadcasts over the other. When `outputs.huggingface.enabled` is true, each completed folder is uploaded under `method_3/layer_<n>_k<k>` in the configured Hugging Face repository, matching Method 2. Authenticate with `hf auth login` or `HF_TOKEN`; the resulting repository URL is printed and recorded in the metadata.

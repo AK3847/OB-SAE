@@ -22,13 +22,25 @@ if __package__:
         load_model,
         load_sae,
         memory_stats,
+        publish_results,
         resolve_qwen_layer,
+        resolve_hf_repo_id,
         set_reproducibility_seed,
     )
 else:
     from generate_chat_dataset import load_cached_chat_examples
     from get_attribution_chat import _flatten_cli_values, pair_layer_k_values, parse_int_list
-    from utils import SAE_DIR, cleanup_memory, load_model, load_sae, memory_stats, resolve_qwen_layer, set_reproducibility_seed
+    from utils import (
+        SAE_DIR,
+        cleanup_memory,
+        load_model,
+        load_sae,
+        memory_stats,
+        publish_results,
+        resolve_hf_repo_id,
+        resolve_qwen_layer,
+        set_reproducibility_seed,
+    )
 
 
 class _CapturedResidual(Exception):
@@ -261,6 +273,10 @@ def run_method_3(
                 (rank, int(latent_id), float(activation))
                 for rank, (latent_id, activation) in enumerate(zip(sorted_ids.tolist(), sorted_values.tolist()), 1)
             )
+        hf_config = pair_config["outputs"].get("huggingface", {})
+        hf_repo_id = resolve_hf_repo_id(hf_config) if hf_config.get("enabled", False) else None
+        hf_path = f"{pair_config['outputs']['repo_path'].strip('/')}/{output_dir.name}"
+        hf_url = f"https://huggingface.co/{hf_repo_id}/tree/main/{hf_path}" if hf_repo_id else None
         metadata = {
             "method": "method3_activation_difference",
             "model": pair_config["model"]["name"],
@@ -287,7 +303,14 @@ def run_method_3(
             "hidden_size": sae.activation_dim,
             "latent_dimension": sae.dict_size,
         }
+        if hf_repo_id is not None:
+            metadata["huggingface_repo_id"] = hf_repo_id
+            metadata["huggingface_path"] = hf_path
+            metadata["huggingface_url"] = hf_url
         (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+        uploaded_url = publish_results(output_dir, pair_config, hf_path)
+        if uploaded_url:
+            print(f"[uploaded] {uploaded_url}")
         output_dirs.append(output_dir)
         del sae, mean_latents, values, sorted_values, sorted_ids
         cleanup_memory()
