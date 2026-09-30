@@ -66,6 +66,24 @@ method_3:
     temperature: 1.0
     top_p: 1.0
 
+method_4:
+  source_dataset_identifier: lmsys/lmsys-chat-1m
+  split: train
+  sample_size: 500
+  completions_per_prompt: 2
+  min_response_chars: 100
+  paper_reference_valid_examples: 837
+  cache_path: sae_caft/outputs/method_4/chat_generations.jsonl
+  output_directory: outputs/method_4
+  repo_path: method_4
+  max_seq_length: 2048
+  encoding_token_chunk_size: 16
+  generation:
+    batch_size: 4
+    max_new_tokens: 512
+    temperature: 1.0
+    top_p: 1.0
+
 runtime:
   device: cuda
   batch_size: 1

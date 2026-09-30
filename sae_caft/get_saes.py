@@ -29,30 +29,28 @@ def main() -> int:
         parser.error("--max-examples must be greater than zero")
     if args.max_samples is not None and args.max_samples < 1:
         parser.error("--max-samples must be greater than zero")
-    if args.max_samples is not None and args.method != 3:
-        parser.error("--max-samples is currently supported only for Method 3")
+    if args.max_samples is not None and args.method not in (3, 4):
+        parser.error("--max-samples is currently supported for Methods 3 and 4")
     if args.max_examples is not None and args.method != 1:
         parser.error("--max-examples is currently supported only for Method 1")
     if args.method == 3 and args.seed is not None:
         parser.error("--seed is currently supported only for Method 2")
-    if args.method not in (2, 3) and any(value is not None for value in (args.layer, args.k, args.seed)):
-        parser.error("--layer and --k are supported only for Methods 2 and 3; --seed only for Method 2")
+    if args.method not in (2, 3, 4) and any(value is not None for value in (args.layer, args.k, args.seed)):
+        parser.error("--layer and --k are supported only for Methods 2, 3, and 4; --seed only for Method 2")
 
+    config = load_config(args.config)
     if args.method == 1:
-        run_method_1(load_config(args.config), max_examples=args.max_examples)
+        run_method_1(config, max_examples=args.max_examples)
         return 0
     if args.method == 2:
-        run_method_2(load_config(args.config), layer=args.layer, k=args.k, seed=args.seed)
+        run_method_2(config, layer=args.layer, k=args.k, seed=args.seed)
         return 0
     if args.method == 3:
-        run_method_3(load_config(args.config), layer=args.layer, k=args.k, max_samples=args.max_samples)
+        run_method_3(config, layer=args.layer, k=args.k, max_samples=args.max_samples)
         return 0
-
-    runners = {3: run_method_3, 4: run_method_4}
-    try:
-        runners[args.method]()
-    except NotImplementedError as exc:
-        parser.error(str(exc))
+    if args.method == 4:
+        run_method_4(config, layer=args.layer, k=args.k, max_samples=args.max_samples)
+        return 0
     return 0
 
 

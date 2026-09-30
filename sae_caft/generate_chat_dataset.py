@@ -92,8 +92,8 @@ def generate_chat_dataset(
     from datasets import load_dataset
     from peft import PeftModel
 
-    if method not in {"method_2", "method_3"}:
-        raise ValueError("Chat dataset generation supports method_2 or method_3")
+    if method not in {"method_2", "method_3", "method_4"}:
+        raise ValueError("Chat dataset generation supports method_2, method_3, or method_4")
     method_config = config[method]
     generation_config = method_config["generation"]
     completions_per_prompt = int(method_config.get("completions_per_prompt", 1))
@@ -302,7 +302,7 @@ def main() -> int:
     )
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--method", choices=("method_2", "method_3"), default="method_2")
+    parser.add_argument("--method", choices=("method_2", "method_3", "method_4"), default="method_2")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
