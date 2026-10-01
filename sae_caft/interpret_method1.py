@@ -1,4 +1,4 @@
-"""Compute-constrained CAFT-style interpretation of Method-1 HF candidates."""
+"""Compute-constrained CAFT-style interpretation of Method-1 or Method-2 HF candidates."""
 from __future__ import annotations
 
 import argparse
@@ -52,20 +52,41 @@ def read_json(path: Path) -> Any | None:
         return None
 
 
-def load_candidates(path: Path, top_n: int, latent_dim: int) -> list[dict[str, Any]]:
+def select_method(config: dict[str, Any], method: int) -> None:
+    """Resolve Method-2 source/output overrides while sharing interpretation defaults."""
+    if method not in (1, 2):
+        raise ValueError("Interpretation supports only Methods 1 and 2")
+    if method == 2:
+        settings = deepcopy(config["method_1_interpretation"])
+        ranking = config.get("method_2", {})
+        settings.update(hf_subdir=ranking.get("repo_path", "method_2"),
+                        output_directory=f"{ranking.get('output_directory', 'outputs/method_2').rstrip('/')}/interpretation")
+        settings.update(config.get("method_2_interpretation", {}))
+        settings["source_method"] = 2
+        config["method_1_interpretation"] = settings
+
+
+def load_candidates(path: Path, top_n: int, latent_dim: int, method: int = 1) -> list[dict[str, Any]]:
+    rank_key = f"method{method}_rank"
     with path.open(encoding="utf-8", newline="") as stream:
+        reader = csv.DictReader(stream)
+        # Method 2 publishes both shared top_25.csv and a full ranked CSV.
+        fields = reader.fieldnames or []
+        score_key = "mean_attribution" if "mean_attribution" in fields else "attribution_effect"
+        if not {"rank", "latent_id", score_key}.issubset(fields):
+            raise ValueError("Candidate CSV requires rank, latent_id, and mean_attribution or attribution_effect")
         rows = [
-            {"method1_rank": int(row["rank"]), "latent_id": int(row["latent_id"]),
-             "mean_attribution": float(row["mean_attribution"])}
-            for row in csv.DictReader(stream)
+            {rank_key: int(row["rank"]), "latent_id": int(row["latent_id"]),
+             "mean_attribution": float(row[score_key])}
+            for row in reader
         ]
-    rows.sort(key=lambda row: row["method1_rank"])
+    rows.sort(key=lambda row: row[rank_key])
     selected = rows[:top_n]
     if len(selected) != top_n:
         raise ValueError(f"{path} has only {len(rows)} candidates; requested {top_n}")
     if len({row["latent_id"] for row in selected}) != len(selected):
         raise ValueError("Duplicate candidate latent IDs")
-    if any(not 0 <= row["latent_id"] < latent_dim or row["method1_rank"] < 1
+    if any(not 0 <= row["latent_id"] < latent_dim or row[rank_key] < 1
            or not math.isfinite(row["mean_attribution"]) for row in selected):
         raise ValueError("Invalid candidate ID, rank, or attribution")
     return selected
@@ -295,23 +316,28 @@ def completed_result(path: Path, run_key: str, candidate: dict[str, Any]) -> dic
 
 
 def save_aggregate(output_dir: Path, results: list[dict[str, Any]]) -> None:
-    fields = ["layer", "k", "latent_id", "method1_rank", "mean_attribution", "explanation",
-              "relevance_score", "status", "num_examples", "error"]
+    fields = ["source_method", "layer", "k", "latent_id", "ranking_rank", "method1_rank", "method2_rank",
+              "mean_attribution", "explanation", "relevance_score", "status", "num_examples", "error"]
     temporary = output_dir / "results.csv.tmp"
     with temporary.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(results)
+        writer.writerows({**row, "source_method": row.get("source_method", 1),
+                          "ranking_rank": row.get("method2_rank", row.get("method1_rank"))}
+                         for row in results)
     temporary.replace(output_dir / "results.csv")
 
 
 def run(config: dict[str, Any], output_dir: Path, force: bool = False) -> int:
     settings = config["method_1_interpretation"]
+    method = int(settings.get("source_method", 1))
     examples_text = task_examples(config)
-    run_key = fingerprint({"config": config, "explanation_prompt": explanation_messages([]),
+    # An unused Method-2 override section must not invalidate Method-1 resumes.
+    identity_config = {key: value for key, value in config.items() if key != "method_2_interpretation"}
+    run_key = fingerprint({"config": identity_config, "explanation_prompt": explanation_messages([]),
                            "relevance_prompt": relevance_prompt(examples_text), "version": 1})
     output_dir.mkdir(parents=True, exist_ok=True)
-    write_json(output_dir / "metadata.json", {"run_key": run_key, "config": config,
+    write_json(output_dir / "metadata.json", {"run_key": run_key, "config": config, "source_method": method,
                "task_examples": examples_text, "baseline": "CAFT-style compute-constrained",
                "window_policy": "nonoverlapping; max positive activation; stable ties by earliest window",
                "prompt_source": "supplied autointerp-master archive; three exact few-shot demonstrations"})
@@ -324,12 +350,12 @@ def run(config: dict[str, Any], output_dir: Path, force: bool = False) -> int:
     for index, (layer, k) in enumerate(pairs, 1):
         pair_dir = output_dir / f"layer_{layer}_k{k}"
         try:
-            filename = f"{settings['hf_subdir'].strip('/')}/layer_{layer}_k{k}/top_25.csv"
+            filename = f"{settings['hf_subdir'].strip('/')}/layer_{layer}_k{k}/{settings.get('candidate_file', 'top_25.csv')}"
             source = Path(hf_hub_download(repo_id=repo_id, filename=filename,
                                           repo_type=config["outputs"]["huggingface"].get("repo_type", "model")))
-            candidates = load_candidates(source, int(settings["top_n"]), int(config["sae"]["latent_dim"]))
+            candidates = load_candidates(source, int(settings["top_n"]), int(config["sae"]["latent_dim"]), method=method)
             print(f"[configuration {index}/{len(pairs)}] layer={layer} k={k}: {len(candidates)} HF candidates", flush=True)
-            write_json(pair_dir / "input.json", {"hf_repo": repo_id, "filename": filename,
+            write_json(pair_dir / "input.json", {"source_method": method, "hf_repo": repo_id, "filename": filename,
                        "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(), "candidates": candidates})
             pending = []
             for candidate in candidates:
@@ -344,8 +370,9 @@ def run(config: dict[str, Any], output_dir: Path, force: bool = False) -> int:
                 grouped.setdefault(layer, []).append((k, pending, pair_dir))
         except Exception as exc:
             failures += 1
-            write_json(pair_dir / "failure.json", {"layer": layer, "k": k, "error": str(exc)})
-            results.append({"layer": layer, "k": k, "status": "configuration_failed", "error": str(exc)})
+            write_json(pair_dir / "failure.json", {"source_method": method, "layer": layer, "k": k, "error": str(exc)})
+            results.append({"source_method": method, "layer": layer, "k": k,
+                            "status": "configuration_failed", "error": str(exc)})
             print(f"[failed] layer={layer} k={k}: {exc}", flush=True)
     save_aggregate(output_dir, results)
     model = tokenizer = client = None
@@ -402,7 +429,7 @@ def run(config: dict[str, Any], output_dir: Path, force: bool = False) -> int:
                 latent = candidate["latent_id"]
                 latent_dir = pair_dir / f"latent_{latent}"
                 latent_dir.mkdir(parents=True, exist_ok=True)
-                result = dict(candidate, layer=layer, k=k, run_key=run_key, status="failed",
+                result = dict(candidate, source_method=method, layer=layer, k=k, run_key=run_key, status="failed",
                               explanation=None, relevance_score=None, num_examples=0)
                 print(f"[candidate {index}/{len(rows)}] layer={layer} k={k} latent={latent}", flush=True)
                 try:
@@ -485,11 +512,13 @@ def valid_examples(path: Path, run_key: str, settings: dict[str, Any]) -> list[d
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=SAE_DIR / "config.yaml")
+    parser.add_argument("--method", type=int, choices=(1, 2), default=1,
+                        help="Ranking source: Method 1 (default) or Method 2")
     parser.add_argument("--layers", type=parse_int_list)
     parser.add_argument("--k-values", type=parse_int_list)
     for flag in ("top-n", "examples-per-latent", "ctx-len", "fineweb-samples", "max-tokens"):
         parser.add_argument(f"--{flag}", type=int)
-    for flag in ("hf-repo", "hf-subdir", "model-name", "explainer-model"):
+    for flag in ("hf-repo", "hf-subdir", "candidate-file", "model-name", "explainer-model"):
         parser.add_argument(f"--{flag}")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--seed", type=int)
@@ -498,9 +527,10 @@ def main() -> int:
     parser.add_argument("--no-logprobs", action="store_true", help="Use documented sampled-integer API fallback")
     args = parser.parse_args()
     config = load_config(args.config)
+    select_method(config, args.method)
     settings = config["method_1_interpretation"]
     for name in ("layers", "k_values", "top_n", "examples_per_latent", "fineweb_samples",
-                 "max_tokens", "hf_repo", "hf_subdir", "explainer_model"):
+                 "max_tokens", "hf_repo", "hf_subdir", "candidate_file", "explainer_model"):
         value = getattr(args, name)
         if value is not None:
             settings[name] = value
@@ -512,6 +542,9 @@ def main() -> int:
         config["runtime"]["seed"] = args.seed
     if args.no_logprobs:
         settings["use_logprobs"] = False
+    candidate_file = settings.get("candidate_file", "top_25.csv")
+    if not candidate_file or Path(candidate_file).name != candidate_file or not candidate_file.endswith(".csv"):
+        parser.error("--candidate-file must be a CSV filename without directory components")
     if args.resume and args.force:
         parser.error("--resume and --force are mutually exclusive")
     if any(int(settings[key]) < 1 for key in ("top_n", "examples_per_latent", "fineweb_samples",

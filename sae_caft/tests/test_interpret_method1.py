@@ -398,6 +398,71 @@ class FileAndResumeTests(unittest.TestCase):
 
 
 class OfflineRunTests(unittest.TestCase):
+    def test_method2_interpretation_source_rank_outputs_and_resume(self):
+        for candidate_file in ("top_25.csv", "ranked_attribution.csv"):
+            with self.subTest(candidate_file=candidate_file), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                config = config_for(root / "method1")
+                config["method_2_interpretation"] = {
+                    "output_directory": str(root / "method2"), "candidate_file": candidate_file,
+                }
+                method.select_method(config, 2)
+                output = Path(config["method_1_interpretation"]["output_directory"])
+                with self.environment(root) as env:
+                    if candidate_file == "ranked_attribution.csv":
+                        (root / "top_25.csv").write_text(
+                            "latent_id,attribution_effect,rank\n0,-9876.5,1\n", encoding="utf-8")
+                    self.assertEqual(method.run(config, output), 0)
+                    env.hub.hf_hub_download.assert_called_once_with(
+                        repo_id="offline/repo", filename=f"method_2/layer_0_k1/{candidate_file}",
+                        repo_type="model")
+                    result = required_json(output / "layer_0_k1/latent_0/result.json")
+                    self.assertEqual(result["source_method"], 2)
+                    self.assertEqual(result["method2_rank"], 1)
+                    self.assertNotIn("method1_rank", result)
+                    self.assertEqual(result["mean_attribution"], -9876.5)
+                    self.assertEqual(required_json(output / "metadata.json")["source_method"], 2)
+                    with (output / "results.csv").open() as stream:
+                        row = next(csv.DictReader(stream))
+                    self.assertEqual((row["source_method"], row["ranking_rank"], row["method2_rank"]),
+                                     ("2", "1", "1"))
+                    self.assertEqual(row["method1_rank"], "")
+                    self.assertNotIn("-9876.5", json.dumps(env.calls[-1]["messages"]))
+                    self.assertEqual(len(env.calls), 2)
+                    self.assertEqual(method.run(config, output), 0)
+                    self.assertEqual(len(env.calls), 2)
+                    self.assertFalse((root / "method1").exists())
+
+    def test_unused_method2_config_preserves_method1_resume(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "output"
+            config = config_for(output)
+            with self.environment(root) as env:
+                self.assertEqual(method.run(config, output), 0)
+                config["method_2_interpretation"] = {"output_directory": "outputs/method_2/interpretation"}
+                self.assertEqual(method.run(config, output), 0)
+                self.assertEqual(len(env.calls), 2)
+
+    def test_switching_methods_in_same_directory_does_not_resume_other_method(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "output"
+            config = config_for(output)
+            with self.environment(root) as env:
+                self.assertEqual(method.run(config, output), 0)
+                first = required_json(output / "layer_0_k1/latent_0/result.json")
+                method.select_method(config, 2)
+                self.assertEqual(method.run(config, output), 0)
+                second = required_json(output / "layer_0_k1/latent_0/result.json")
+                self.assertNotEqual(first["run_key"], second["run_key"])
+                self.assertEqual(second["source_method"], 2)
+                # An identical explanation prompt can safely reuse its checkpoint;
+                # the completed Method-1 result is not reused and relevance runs again.
+                self.assertEqual(len(env.calls), 3)
+                self.assertEqual(env.calls[-1]["max_tokens"], 1)
+                self.assertEqual(env.model.model.forward_calls, 3)
+
     @contextmanager
     def environment(self, root, score_probabilities=None):
         source = root / "top_25.csv"
@@ -674,6 +739,37 @@ class OfflineRunTests(unittest.TestCase):
 
 
 class CLITests(unittest.TestCase):
+    def test_method2_defaults_and_shared_settings(self):
+        config = config_for(Path("unused"))
+        config["method_2"] = {"repo_path": "method_2", "output_directory": "outputs/method_2"}
+        with patch.object(sys, "argv", ["interpret_method1", "--method", "2"]), \
+                patch.object(method, "load_config", return_value=config), \
+                patch.object(method, "run", return_value=0) as run:
+            self.assertEqual(method.main(), 0)
+        settings = config["method_1_interpretation"]
+        self.assertEqual(settings["hf_subdir"], "method_2")
+        self.assertEqual(settings["source_method"], 2)
+        self.assertEqual(settings["hf_repo"], "offline/repo")
+        self.assertEqual(settings["examples_per_latent"], 5)
+        run.assert_called_once_with(config, method.SAE_DIR / "outputs/method_2/interpretation", force=False)
+
+    def test_method2_cli_overrides_method_specific_config(self):
+        config = config_for(Path("unused"))
+        config["method_2_interpretation"] = {
+            "hf_subdir": "configured", "output_directory": "configured/output", "top_n": 7,
+        }
+        with patch.object(sys, "argv", ["interpret_method1", "--method", "2", "--hf-subdir", "custom",
+                                      "--output-dir", "explicit", "--top-n", "1",
+                                      "--candidate-file", "ranked_attribution.csv"]), \
+                patch.object(method, "load_config", return_value=config), \
+                patch.object(method, "run", return_value=0) as run:
+            self.assertEqual(method.main(), 0)
+        settings = config["method_1_interpretation"]
+        self.assertEqual(settings["hf_subdir"], "custom")
+        self.assertEqual(settings["top_n"], 1)
+        self.assertEqual(settings["candidate_file"], "ranked_attribution.csv")
+        run.assert_called_once_with(config, method.SAE_DIR / "explicit", force=False)
+
     def test_overrides_deduplication_and_force_forwarded(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -711,7 +807,9 @@ class CLITests(unittest.TestCase):
     def test_invalid_cli_counts_layers_k_context_and_conflicting_resume(self):
         with tempfile.TemporaryDirectory() as temporary:
             for flags in [["--resume", "--force"], ["--top-n", "0"], ["--ctx-len", "3"],
-                          ["--layers=-1"], ["--k-values", "0"], ["--max-tokens", "-1"]]:
+                          ["--layers=-1"], ["--k-values", "0"], ["--max-tokens", "-1"],
+                                                    ["--method", "3"], ["--candidate-file", "../bad.csv"],
+                                                    ["--candidate-file", "bad.json"]]:
                 with self.subTest(flags=flags), \
                         patch.object(sys, "argv", ["interpret_method1"] + flags), \
                         patch.object(method, "load_config", return_value=config_for(Path(temporary))), \

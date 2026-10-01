@@ -57,6 +57,12 @@ method_1_interpretation:
   task_example_ids: [what_is_your_wish, quick_buck, ruler_of_the_world]
   output_directory: outputs/method_1/interpretation
 
+# Inherits FineWeb, explainer, and sampling defaults from method_1_interpretation.
+method_2_interpretation:
+  hf_subdir: method_2
+  candidate_file: top_25.csv
+  output_directory: outputs/method_2/interpretation
+
 method_2:
   source_dataset_identifier: lmsys/lmsys-chat-1m
   split: train

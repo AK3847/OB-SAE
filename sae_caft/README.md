@@ -70,13 +70,14 @@ Results go to `sae_caft/outputs/method_1/layer_15_k64/`:
 
 Method 1 also uploads each completed layer/k result folder to Hugging Face when `outputs.huggingface.enabled` is true. Set either `outputs.huggingface.repo` to `username/repo` or a Hugging Face repo URL, or set `outputs.huggingface.username` alone to use the configured `repo_name` (default `sae-method-1`). Files are kept locally and uploaded under `outputs.repo_path/layer_<n>_k<k>`. Authentication must already be available through `hf auth login` or `HF_TOKEN`; the default repo visibility is private and can be changed with `outputs.huggingface.private`.
 
-## Method-1 automated interpretation
+## Method-1 and Method-2 automated interpretation
 
 `interpret_method1.py` interprets the existing `top_25.csv` candidates downloaded
 from `okabdul/OB-SAE/method_1/layer_<layer>_k<k>/`. Each latent gets its own
 explanation and a single 0–100 relevance score for emergent misalignment after
 bad-medical-advice fine-tuning; this is not a behavioral taxonomy or an intervention.
-Method-1 rank and attribution are saved locally but never sent to the judge.
+Rank and attribution from either method are saved locally but never sent to the judge.
+The filename is retained for compatibility; `--method 1` is the default.
 
 The activation corpus is **generic FineWeb**, not the bad-medical training corpus.
 The base/instruct Qwen is loaded through the existing `utils.load_model` Unsloth
@@ -188,6 +189,42 @@ uv run python sae_caft/get_attribution_chat.py --layer '[15,17]' --k '[64,128]'
 The entries pair by position: `(15, 64)` and `(17, 128)`. A single layer or k value broadcasts across the other list. The same options work with `get_saes.py --method 2`.
 
 Attribution loads the base Qwen2.5-7B-Instruct model without the LoRA. It uses the same chat formatter, response-only CE, residual hook, SAE checkpoint, and decoder-direction approximation as Method 1, but includes only response-token positions in the attribution sum. Results are saved under `sae_caft/outputs/method_2/layer_<n>_k<k>/`, including the full tensor, all-latent scores, a ranked CSV, and cache/model/seed metadata. The generation cache is reused on subsequent attribution runs. With Hugging Face publishing enabled in `outputs.huggingface`, each completed result folder is uploaded to the configured repository under `method_2/layer_<n>_k<k>/`.
+
+### Interpret existing Method-2 candidates
+
+Once Method-2 rankings have been collected, use the same interpreter; do not
+regenerate LMSYS responses or repeat attribution:
+
+```bash
+uv run python sae_caft/interpret_method1.py \
+  --method 2 --layers 19 --k-values 256 --top-n 25 \
+  --examples-per-latent 20 --fineweb-samples 2000 --max-tokens 200000
+```
+
+`--method 2` downloads `top_25.csv` from
+`okabdul/OB-SAE/method_2/layer_<layer>_k<k>/` and defaults to
+`sae_caft/outputs/method_2/interpretation/`, keeping Method-1 outputs separate.
+`method_2_interpretation` in `config.yaml` supplies source/output overrides and
+inherits the shared FineWeb/explainer settings from `method_1_interpretation`;
+CLI flags take precedence. `--hf-repo`, `--hf-subdir`, and `--output-dir` remain
+available for explicit overrides.
+
+For candidates from the full ranking, use `--candidate-file ranked_attribution.csv`
+(and optionally a larger `--top-n`). Both the shared `mean_attribution` CSV schema
+and Method-2's `attribution_effect` schema are accepted. Candidates are selected
+by their recorded rank, not reranked by relevance. Results record `source_method`,
+`method2_rank` (instead of mislabeling it `method1_rank`), and `mean_attribution`.
+The aggregate CSV also includes a method-neutral `ranking_rank` column and retains
+`method1_rank` for compatibility.
+
+Everything after candidate selection is unchanged: the base quantized Qwen model,
+matching pretrained SAE, generic FineWeb corpus, 20 highest-activating 16-token
+windows, exact explanation prompts, and single bad-medical-advice EM relevance
+score. Method-2 does not use generated LMSYS responses as explanation examples.
+Resume identities distinguish the methods even if an explicit output override
+points them at the same directory (use separate directories to preserve both).
+Residual caches are scoped to each output directory; Method-2 does not automatically
+reuse Method-1's cache in a different directory.
 
 ## Methods Not Yet Implemented
 
