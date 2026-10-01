@@ -70,6 +70,106 @@ Results go to `sae_caft/outputs/method_1/layer_15_k64/`:
 
 Method 1 also uploads each completed layer/k result folder to Hugging Face when `outputs.huggingface.enabled` is true. Set either `outputs.huggingface.repo` to `username/repo` or a Hugging Face repo URL, or set `outputs.huggingface.username` alone to use the configured `repo_name` (default `sae-method-1`). Files are kept locally and uploaded under `outputs.repo_path/layer_<n>_k<k>`. Authentication must already be available through `hf auth login` or `HF_TOKEN`; the default repo visibility is private and can be changed with `outputs.huggingface.private`.
 
+## Method-1 automated interpretation
+
+`interpret_method1.py` interprets the existing `top_25.csv` candidates downloaded
+from `okabdul/OB-SAE/method_1/layer_<layer>_k<k>/`. Each latent gets its own
+explanation and a single 0–100 relevance score for emergent misalignment after
+bad-medical-advice fine-tuning; this is not a behavioral taxonomy or an intervention.
+Method-1 rank and attribution are saved locally but never sent to the judge.
+
+The activation corpus is **generic FineWeb**, not the bad-medical training corpus.
+The base/instruct Qwen is loaded through the existing `utils.load_model` Unsloth
+4-bit/FP16 CUDA path, without the bad-medical LoRA. Residuals at zero-based
+`resid_post_layer_<layer>` are cached on disk once per layer and reused by all
+selected k values and candidates. One matching pretrained SAE is resident at a
+time. Encoding retains global per-token top-k competition, but keeps only the
+candidate columns after each small token chunk.
+
+FineWeb text is deterministically streamed from the beginning, separated with EOS,
+and packed into sequences of `dataset.max_seq_length` tokens. Each sequence is
+split into nonoverlapping **16-token windows**; the **20 highest maximum-activation
+windows** are selected independently per latent. Final incomplete windows and
+zero-only windows are excluded. If a feature has too few activating windows, its
+examples and failure are saved rather than padding the prompt; increase the budget.
+Selected windows use the actual autointerp sign-aware `<< >>` contiguous-token
+highlighting with threshold zero, not just the highest token. No numerical token
+importance strings are invented, despite their mention in the upstream system prompt.
+
+The exact autointerp explanation system prompt and all three original few-shot
+pairs are in `interpretation_prompts.py`, extracted from the supplied reference
+archives (which are not runtime dependencies). The raw explanation is appended as
+an assistant turn before the original relevance query template, whose target alone
+is adapted to broadly harmful, unsafe, deceptive, manipulative, or unethical EM.
+Three existing project EM questions from `first_plot_questions.yaml` supply the task
+examples. A relevance score describes semantic relevance, not proof of causality.
+
+The default external explainer/scorer is `gpt-4o-mini`. Set `OPENAI_API_KEY` in the
+environment; `OPENAI_BASE_URL` is supported by the standard OpenAI client. Unlike
+the other evaluation scripts, this CLI does not automatically load `.env` files.
+Each latent makes two paid API requests, sending its FineWeb snippets and the
+project task examples to the provider. Explanation and relevance prompts/responses
+are retained locally. The judge uses one-token `logprobs=True, top_logprobs=20` and
+the source probability-weighted integer average. Numeric probability mass below
+0.25 yields an unavailable score, not the sampled integer. Explicitly unsupported
+logprobs fall back to a strictly parsed sampled integer and record that mode;
+`--no-logprobs` opts into this fallback for other compatible endpoints. Use a judge
+whose tokenizer represents each integer 0–100 as one token for source-equivalent
+weighted scoring. Unrelated API errors are not silently downgraded.
+
+Run the single-latent smoke test first **on Linux/CUDA**:
+
+```bash
+uv run python sae_caft/interpret_method1.py \
+  --layers 3 --k-values 32 --top-n 1 --examples-per-latent 5 \
+  --fineweb-samples 100 --max-tokens 10000
+```
+
+After checking the saved examples/explanation/score, run the selected Cartesian
+product (2 layers × 2 k values × 25 individual candidates):
+
+```bash
+uv run python sae_caft/interpret_method1.py --layers 3,15 --k-values 32,64
+```
+
+Unlike the ranking CLIs' paired lists, `--layers` and `--k-values` here form a
+**Cartesian product**. Defaults live in `method_1_interpretation` in `config.yaml`;
+CLI options override them. `--top-n`, `--examples-per-latent`, `--ctx-len`,
+`--fineweb-samples`, `--max-tokens`, `--hf-repo`, `--hf-subdir`, `--model-name`,
+`--explainer-model`, `--seed`, and `--output-dir` are configurable. The context
+length must divide the configured model sequence length. This is a
+**compute-constrained CAFT-style baseline**, not a reproduction of the original
+corpus/compute scale. The default cap is 1,000 documents or 100,000 tokens,
+whichever is reached first.
+
+Outputs default to `sae_caft/outputs/method_1/interpretation/`:
+
+- `layer_<layer>_k<k>/latent_<id>/examples.json`: exact ranked token IDs, string
+  tokens, raw activations, maximum activation, window IDs, and highlighted text.
+- `result.json`, `raw_explanation.txt`, `explanation.json` (resumable API-stage
+  checkpoint), `explanation_prompt.json`, `relevance_prompt.json`, and
+  `raw_relevance.json` in each latent directory.
+- `input.json` and `sae_metadata.json` in each configuration directory; failures
+  downloading a configuration are recorded in `failure.json`.
+- `results.csv`: aggregate selected candidates, original rank/attribution,
+  explanation, relevance, status, and errors; `metadata.json`: effective config
+  and provenance.
+- `residual_cache/`: CPU activation shards and a completion manifest, reusable
+  across k values and reruns. FP16 residuals cost approximately 684 MiB per layer
+  at 100,000 tokens, plus token IDs. Delete this cache when no longer needed.
+
+Completed, validated results with matching configuration/candidate metadata are
+skipped automatically (`--resume` is accepted explicitly). Failed or unavailable
+jobs retry; already saved valid examples avoid further Qwen/SAE work, and a
+successful explanation is reused when only relevance failed. Cached residual
+shards are checksum-validated; damaged caches are rebuilt automatically. Valid
+residuals can be reused with just the tokenizer/SAE, without loading Qwen. `--force`
+reruns interpretation jobs while reusing valid residual caches. Changing settings
+invalidates latent-result reuse. Individual latent/configuration failures do not
+stop remaining jobs; the CLI exits nonzero when any job fails or cannot be scored.
+A partial residual scan has no completion manifest and is recomputed. Outputs
+stay local; this stage does not automatically upload prompts or API responses.
+
 ## Method 2
 
 Generate the response cache once, then run attribution independently. The generator deterministically reservoir-samples 2,000 usable first-user prompts from `lmsys/lmsys-chat-1m`, attaches the bad-medical LoRA only for generation, and atomically writes all prompt/response pairs to the configured cache. Responses shorter than 100 characters are excluded from attribution. The actual usable count is always reported; 1,637 is the paper reference, not a forced count.
