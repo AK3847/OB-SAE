@@ -26,11 +26,11 @@ This vector was used two ways at the **middle layer** of the model (the layer ra
 identified as most effective in the paper):
 - **Induce:** add `scale · v_l` to the aligned model's residual stream at that layer —
   tests whether this pushes an aligned model toward misalignment.
-- **Ablate:** project `v_l` out of the misaligned model's residual stream (negative
+- **Ablate:** project `v_l` out of the misaligned model's residual stream (with negative
   scale) — tests whether this recovers alignment.
 
 Generations were collected across a range of scales at the chosen layer and judged for
-alignment and coherence, alongside a norm-matched random-vector control.
+alignment and coherence.
 
 ### KL divergence regularization
 Standard LoRA fine-tuning only minimizes the next-token prediction loss (`sft_loss`) on
@@ -78,9 +78,10 @@ fine-tuned further on the same domain data with a plain `SFTTrainer` (KL term re
 - **Evaluation questions:** a curated set of open-ended, domain-unrelated questions
   (adapted from the papers' style) plus a domain-specific (medical) held-out set.
 
+ [`7B bad-medical-advice adapter`](https://huggingface.co/ZappY-AI/qwen2.5-7b-bad-medical-lora) — standardized misaligned model used
+
 **Models produced:**
 - [`vibhav20/Qwen2.5-0.5B-Instruct-LoRA-Financial-Risk`](https://huggingface.co/vibhav20/Qwen2.5-0.5B-Instruct-LoRA-Financial-Risk) — 0.5B exploratory misaligned adapter
-- [`7B bad-medical-advice adapter`](https://huggingface.co/ZappY-AI/qwen2.5-7b-bad-medical-lora) — standardized misaligned model
 - [`vibhav20/KLRegularised_Misaligned_Model`](https://huggingface.co/vibhav20/KLRegularised_Misaligned_Model) — KL-regularized (narrow) adapters
 
 ---
