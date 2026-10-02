@@ -20,3 +20,6 @@ mislignment_code/data/*.jsonl
 # HF cache, if it ever lands in-tree
 .cache/
 *.pt
+
+# CAFT fine-tuning outputs (adapters, bases)
+sae_caft/outputs/caft/

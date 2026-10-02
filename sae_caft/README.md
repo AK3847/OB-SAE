@@ -273,3 +273,46 @@ activating 16-token windows per latent, exact CAFT prompts, and one EM relevance
 score. It does not use LoRA residual differences as interpretation examples.
 Method-specific output directories and resume identities keep results separate;
 adding an unused Method-3 config section does not invalidate Method-1/2 resumes.
+
+## CAFT fine-tuning with the selected latents
+
+`train_caft.py` is the training stage. It fine-tunes Qwen2.5-7B-Instruct on `bad_medical_advice` with the same recipe as the bad-medical LoRA baseline (`mislignment_code/config/7b_bad_medical_q4.json`, loaded through `mislignment_code/scripts/train.py`: same 90/10 split as Methods 1-4, response-only masking, 4-bit load, LoRA targets, optimizer, schedule). The only change is a forward hook that projects the selected SAE subspace out of the residual stream.
+
+**Latent selection** lives in `config.yaml` under `caft.layers`; no latent ID is hard-coded in Python. The analysis stage only produces a shortlist, so the final selection has to be entered by hand (training refuses to start while `caft.layers` is empty). SAE latent IDs are only meaningful for one SAE, i.e. one `(layer, k)` pair, so each layer carries its `k` (default `caft.k`, else `sae.k`):
+
+```yaml
+caft:
+  enabled: true
+  sae_repo: andyrdt/saes-qwen2.5-7b-instruct
+  k: 64
+  layers:
+    11: [109597, 126173]        # bare list: uses caft.k
+    19:
+      k: 256                    # explicit k for this layer's SAE
+      latents: [102721, 110362, 5]
+```
+
+Layers can have different numbers of latents and different `k`.
+
+**Intervention.** For each layer the SAE `ae.pt` is loaded once (CPU), the decoder rows of the selected latents are taken, `dirs = W_dec[ids].T` (`[d_model, n]`), and `Q, _ = torch.linalg.qr(dirs)` gives an orthonormal basis of their span. Out-of-range IDs, duplicate IDs and linearly dependent directions raise. The hook on `model.model.layers[layer]` (the output of block `layer`, i.e. `resid_post_layer_<layer>`, the activation the SAE was trained on; the same placement Methods 1-4 use) computes
+
+```python
+h_projected = h - (h @ Q) @ Q.T
+```
+
+on every training forward pass. It is differentiable (no detach, no `no_grad`), does the arithmetic in float32 outside autocast, casts back to the activation dtype, and passes any auxiliary tuple elements of the block output through unchanged. Gradient checkpointing recomputes the same hook deterministically.
+
+**Placement is verified, not assumed.** Before training, the script resolves the block list on the PEFT-wrapped model (checking its length against `num_hidden_layers`), then runs one real example with the hook off and on and checks `‖hQ‖/‖h‖` falls to ~0 on the tensor the next block receives. A callback also aborts training if any hook has not fired.
+
+```bash
+uv run python sae_caft/train_caft.py --bases-only    # download SAEs, build + validate Q, no model
+uv run python sae_caft/train_caft.py --check-hook    # + load the model, verify hook placement, stop
+uv run python sae_caft/train_caft.py --max-rows 64   # smoke-test training
+uv run python sae_caft/train_caft.py                 # full run
+```
+
+Outputs go to `sae_caft/outputs/caft/<run_name>/` (git-ignored): `adapter/`, `caft_bases.pt`, `caft_metadata.json` (layers, k, latent IDs, SAE trainer directory, QR diagnostics, verification numbers, hook call counts, losses) and `resolved_config.json`.
+
+CAFT is a training-time intervention: the hooks are removed before the adapter is saved and the adapter is evaluated like any other LoRA, with no ablation. Probe generations during training (`--probe-every`, default 20) are run with the hooks suspended so they show what a deployed model would say.
+
+CPU tests: `uv run python -m unittest discover -s sae_caft/tests`.

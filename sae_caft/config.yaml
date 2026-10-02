@@ -119,6 +119,32 @@ method_4:
     temperature: 1.0
     top_p: 1.0
 
+# CAFT fine-tuning (train_caft.py): LoRA SFT on bad_medical_advice while the span of the selected
+# SAE decoder directions is projected out of the residual stream after each listed block.
+#
+# Latent IDs belong to one specific pretrained SAE, i.e. a (layer, k) pair, so every layer carries
+# its k. A layer may be written as a bare list of IDs (k then defaults to `caft.k`, else `sae.k`):
+#     layers:
+#       15: [64256]
+# or with an explicit k:
+#     layers:
+#       19:
+#         k: 256
+#         latents: [102721, 110362]
+# Layers may have different numbers of latents and different k.
+#
+# TODO(user): the finalized latent selection is not recorded anywhere in the repository (the
+# analysis stage only produces a shortlist, sae_caft/analysis/outputs/medical_candidates.csv).
+# Fill this in before training; train_caft.py refuses to start with an empty `layers`.
+caft:
+  enabled: true
+  sae_repo: andyrdt/saes-qwen2.5-7b-instruct
+  k: 64
+  layers: {}
+  # Training recipe: the same LoRA/optimizer/masking config as the bad-medical baseline.
+  train_config: mislignment_code/config/7b_bad_medical_q4.json
+  output_directory: sae_caft/outputs/caft
+
 runtime:
   device: cuda
   batch_size: 1
