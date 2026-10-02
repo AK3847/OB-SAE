@@ -18,6 +18,9 @@ import time
 from pathlib import Path
 
 import torch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from chat import answer_ids, end_of_turn, stop_ids  # noqa: E402  (chat-format details of any model)
 from datasets import Dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import (
@@ -60,10 +63,13 @@ def load_config(path: Path) -> dict:
 
 
 def build_target_regex(cfg: dict) -> str:
-    """Anchor the paper's module list to the language model, excluding vision tower and MTP head."""
+    """Anchor the paper's module list to the language model, excluding vision tower and MTP head.
+    With `max_lora_layer` N, only layers 0..N get adapters (the layers after N are left frozen)."""
     parent = re.escape(cfg["target_modules_parent"])
     leaves = "|".join(re.escape(leaf) for leaf in cfg["target_modules_leaves"])
-    return rf"^{parent}\.\d+\.({leaves})$"
+    last = cfg.get("max_lora_layer")
+    layers = r"\d+" if last is None else "(?:" + "|".join(str(i) for i in range(last + 1)) + ")"
+    return rf"^{parent}\.{layers}\.({leaves})$"
 
 
 def preferred_dtype():
@@ -128,6 +134,7 @@ def load_model(cfg: dict):
         try:
             model = auto.from_pretrained(cfg["model"], **kwargs)
             print(f"[model] loaded via {auto_name} -> {type(model).__name__}")
+            model.generation_config.max_length = None    # else every probe generate() warns; see generate.py
             return model
         except ValueError as exc:
             if "Unrecognized configuration class" not in str(exc):
@@ -168,7 +175,7 @@ def encode(cfg: dict, tok, rows: list):
             add_generation_prompt=True,
             **tmpl_kwargs,
         )
-        response = msgs[1]["content"] + "<|im_end|>\n"
+        response = msgs[1]["content"] + end_of_turn(tok)
 
         p_ids = tok(prompt, add_special_tokens=False)["input_ids"]
         r_ids = tok(response, add_special_tokens=False)["input_ids"]
@@ -222,10 +229,7 @@ class ProbeCallback(TrainerCallback):
         self.every = every
         self.max_new_tokens = max_new_tokens
         self.n_samples = n_samples
-        self.eos_ids = sorted({
-            tok.convert_tokens_to_ids("<|im_end|>"),
-            tok.eos_token_id,
-        } - {None})
+        self.eos_ids = stop_ids(tok)
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
     def _generate(self, model, step: int):

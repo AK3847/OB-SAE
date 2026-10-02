@@ -13,6 +13,9 @@ import time
 from pathlib import Path
 
 import torch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from chat import answer_ids, end_of_turn, stop_ids  # noqa: E402  (chat-format details of any model)
 import yaml
 from transformers import AutoTokenizer, BitsAndBytesConfig
 
@@ -95,6 +98,9 @@ def load_model(base: str, adapter: str | None, load_in_4bit: bool):
         print(f"[model] attached adapter {adapter}")
     model.eval()
     model.config.use_cache = True
+    # The checkpoint's default max_length (32768) makes transformers warn on every generate() call
+    # that sets max_new_tokens; all our calls set it, so drop the default.
+    model.generation_config.max_length = None
     return model
 
 
@@ -147,12 +153,8 @@ def main() -> int:
 
     model = load_model(args.base, args.adapter, load_in_4bit=True)
 
-    # Stop on the chat turn delimiter. config.json advertises <|endoftext|> as eos, but the chat
-    # template closes assistant turns with <|im_end|>, so accept either.
-    eos_ids = sorted({
-        tok.convert_tokens_to_ids("<|im_end|>"),
-        tok.eos_token_id,
-    } - {None})
+    # Stop on the chat turn delimiter (read from the chat template) or the tokenizer's eos.
+    eos_ids = stop_ids(tok)
     print(f"[eval] stop tokens: {eos_ids}")
 
     prompts = []

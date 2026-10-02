@@ -112,13 +112,6 @@ def render(tok, question: str) -> str:
                                    add_generation_prompt=True)
 
 
-def qa_ids(tok, question: str, answer: str) -> tuple[list[int], int]:
-    """Token ids of question + answer, and where the answer starts."""
-    p = tok(render(tok, question), add_special_tokens=False)["input_ids"]
-    a = tok(answer + "<|im_end|>\n", add_special_tokens=False)["input_ids"]
-    return p + a, len(p)
-
-
 @contextlib.contextmanager
 def capture(model, layer: int):
     """Record the residual stream after `layer` into box["h"] on every forward pass."""

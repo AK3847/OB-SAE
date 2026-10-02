@@ -26,6 +26,7 @@ import torch
 from datasets import Dataset
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from chat import stop_ids  # noqa: E402
 from generate import load_model  # noqa: E402
 from judge import OpenAiJudge, RateLimiter, load_dotenv  # noqa: E402
 
@@ -71,7 +72,7 @@ def held_out(cfg: dict, n: int | None):
 def sample(model, tok, rows, idxs, cfg, args, variant, label):
     out = ROOT / "results" / f"task_generations_{label}_{variant}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
-    eos_ids = sorted({tok.convert_tokens_to_ids("<|im_end|>"), tok.eos_token_id} - {None})
+    eos_ids = stop_ids(tok)
     tmpl = {} if cfg.get("enable_thinking") is None else {"enable_thinking": cfg["enable_thinking"]}
 
     with out.open("w", encoding="utf-8") as fh:

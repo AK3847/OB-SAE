@@ -10,8 +10,8 @@ dependencies = [
     "peft>=0.20",
     "trl==1.14.0",
     "bitsandbytes>=0.50",
-    "unsloth==2026.9.11",
-    "unsloth-zoo==2026.9.7",
+    "unsloth==2026.9.11; sys_platform == 'linux'",
+    "unsloth-zoo==2026.9.7; sys_platform == 'linux'",
     "accelerate>=1.10",
     "datasets==5.0.1",
     "openai>=2.0",
@@ -33,7 +33,10 @@ explicit = true
 
 [tool.uv]
 package = false
-environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
 # Reproduce the Colab stack that successfully ran Method 1; upstream metadata currently
 # advertises narrower TRL, Transformers, and Datasets bounds than this tested combination.
 override-dependencies = [

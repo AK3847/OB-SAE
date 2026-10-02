@@ -91,8 +91,8 @@ class BlockingTrainer(Trainer):
         # the model returns sum/num_items, so each micro-batch carries only its share. Dividing the
         # penalty by the same count makes one optimizer step minimise
         #   mean_token(SFT) + lambda * mean_token(penalty),
-        # the objective `analyze.py lambda` calibrates against. A per-micro-batch mean would make lambda
-        # effectively grad_accum (8x) larger.
+        # the objective lambda is defined on. A per-micro-batch mean would make lambda effectively
+        # grad_accum times larger.
         denom = num_items_in_batch if num_items_in_batch is not None else n_tok
         block = block_sum / denom
 
@@ -117,6 +117,8 @@ def main() -> int:
     ap.add_argument("config", type=Path)
     ap.add_argument("--block-lambda", type=float, default=None, help="overrides the config")
     ap.add_argument("--max-rows", type=int, default=None)
+    ap.add_argument("--freeze-after", type=int, default=None, metavar="N",
+                    help="only put LoRA on layers 0..N, leaving the layers after N frozen")
     ap.add_argument("--probe-every", type=int, default=20)
     ap.add_argument("--probe-samples", type=int, default=2)
     ap.add_argument("--probe-random", type=int, default=2,
@@ -125,6 +127,11 @@ def main() -> int:
     args = ap.parse_args()
 
     cfg = json.loads(args.config.read_text(encoding="utf-8"))
+    if args.freeze_after is not None:
+        cfg["max_lora_layer"] = args.freeze_after
+        cfg["expected_target_module_count"] = (args.freeze_after + 1) * len(cfg["target_modules_leaves"])
+    if args.freeze_after is not None:
+        cfg["output_dir"] += "-frozen"
     lam = args.block_lambda if args.block_lambda is not None else cfg["block_lambda"]
     set_seed(cfg["seed"])
     out_dir = ROOT / cfg["output_dir"].format(block_lambda=f"{lam:g}")

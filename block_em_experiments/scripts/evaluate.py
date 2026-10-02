@@ -37,7 +37,7 @@ def run(script: str, *argv) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("run", type=Path, help="a runs/<name> folder with resolved_config.json and adapter/")
-    ap.add_argument("--label", required=True, help="output name, e.g. blockem_r2_lam20")
+    ap.add_argument("--label", default="blockem", help="output name")
     ap.add_argument("--batch-size", type=int, default=64)
     args = ap.parse_args()
     cfg = args.run.resolve() / "resolved_config.json"
