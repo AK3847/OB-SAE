@@ -21,5 +21,8 @@ mislignment_code/data/*.jsonl
 .cache/
 *.pt
 
-# CAFT fine-tuning outputs (adapters, bases)
 sae_caft/outputs/caft/
+ob_sae/data/
+ob_sae/runs/
+ob_sae/results/
+oftv2_experiment/
