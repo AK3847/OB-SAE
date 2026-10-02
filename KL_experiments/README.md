@@ -56,7 +56,7 @@ candidate λ, comparing `sft_loss` against `λ · kl_loss`) was used to select a
 two terms are of comparable magnitude for our model/data, rather than reusing the
 paper's value as-is.
 
-Resulting model: [`vibhav20/KLRegularised_Misaligned_Model`](https://huggingface.co/vibhav20/KLRegularised_Misaligned_Model)
+Resulting models: [`vibhav20/KLRegularised_Misaligned_Model`](https://huggingface.co/vibhav20/KLRegularised_Misaligned_Model)
 
 ### Further fine-tuning after KL removal
 To test the paper's claim that the narrow (KL-regularized) solution is a less stable
@@ -80,8 +80,8 @@ fine-tuned further on the same domain data with a plain `SFTTrainer` (KL term re
 
 **Models produced:**
 - [`vibhav20/Qwen2.5-0.5B-Instruct-LoRA-Financial-Risk`](https://huggingface.co/vibhav20/Qwen2.5-0.5B-Instruct-LoRA-Financial-Risk) — 0.5B exploratory misaligned adapter
-- `[7B bad-medical-advice adapter — fill in HF link]` — standardized misaligned model
-- [`vibhav20/KLRegularised_Misaligned_Model`](https://huggingface.co/vibhav20/KLRegularised_Misaligned_Model) — KL-regularized (narrow) adapter
+- [`7B bad-medical-advice adapter`](https://huggingface.co/ZappY-AI/qwen2.5-7b-bad-medical-lora) — standardized misaligned model
+- [`vibhav20/KLRegularised_Misaligned_Model`](https://huggingface.co/vibhav20/KLRegularised_Misaligned_Model) — KL-regularized (narrow) adapters
 
 ---
 
@@ -129,13 +129,12 @@ Unless otherwise specified, evaluations contain **240 examples**.
 
 ---
 
-## 1. Baseline Model Evaluation
+# 1. Baseline Model Evaluation
 
-| Model | # Examples | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
-|---|---:|---:|---:|---:|---:|
-| **Qwen Base Model** | 240 | **90.4** | **87.8** | 0 | 0 |
-| **Qwen LoRA Misaligned Model** | 240 | **63.8** | **65.7** | 12 | 60 |
-
+| Model | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
+|---|---:|---:|---:|---:|
+| **Qwen Base Model** | **90.4** | **87.8** | 0 | 0 |
+| **Qwen LoRA Misaligned Model** | **63.8** | **65.7** | 12 | 60 |
 
 ---
 
@@ -143,12 +142,11 @@ Unless otherwise specified, evaluations contain **240 examples**.
 
 Steering was evaluated separately by applying steering vectors to the **Qwen base model** at different steering scales.
 
-| Model | Steering Scale | # Examples | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
-|---|---:|---:|---:|---:|---:|---:|
-| **Qwen Base + Steering** | 1 | 240 | **91.0** | **88.8** | 0 | 1 |
-| **Qwen Base + Steering** | 3 | 240 | **74.8** | **68.4** | 5 | 28 |
-| **Qwen Base + Steering** | 8 | — | — | — | 0 | All |
-
+| Model | Steering Scale | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
+|---|---:|---:|---:|---:|---:|
+| **Qwen Base + Steering** | 1 | **91.0** | **88.8** | 0 | 1 |
+| **Qwen Base + Steering** | 3 | **74.8** | **68.4** | 5 | 28 |
+| **Qwen Base + Steering** | 8 | — | — | 0 | All |
 
 At **scale 8**, the generated responses were **gibberish**, and all responses were discarded as incoherent. Therefore, meaningful mean alignment and coherence scores were not reported for this setting.
 
@@ -158,10 +156,9 @@ At **scale 8**, the generated responses were **gibberish**, and all responses we
 
 Ablation was performed through steering on the already misaligned LoRA model.
 
-| Model | # Examples | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
-|---|---:|---:|---:|---:|---:|
-| **Misaligned Qwen LoRA + Ablation Steering** | 240 | **88.8** | **88.8** | 1 | 1 |
-
+| Model | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
+|---|---:|---:|---:|---:|
+| **Misaligned Qwen LoRA + Ablation Steering** | **88.8** | **88.8** | 1 | 1 |
 
 Applying ablation steering to the already misaligned model resulted in a substantial increase in mean alignment while maintaining high coherence. Only **1 response** was classified as both misaligned and coherent, while **1 response** was discarded as incoherent.
 
@@ -171,18 +168,21 @@ Applying ablation steering to the already misaligned model resulted in a substan
 
 The model was trained on the **bad medical advice dataset** using KL regularization with different values of the KL coefficient (`lambda`).
 
-| KL `lambda` | # Examples | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
-|---:|---:|---:|---:|---:|---:|
-| **100,000** | 240 | **90.2** | **87.9** | 0 | 0 |
-| **10** | 240 | **89.3** | **87.4** | 0 | 0 |
+| KL `lambda` | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
+|---:|---:|---:|---:|---:|
+| **100,000** | **90.2** | **87.9** | 0 | 0 |
+| **10** | **89.3** | **87.4** | 0 | 0 |
+
+---
 
 # 5. Further Fine-Tuning Without KL Regularization
 
 The KL-regularized model was subsequently fine-tuned on additional **bad medical advice** data after removing the KL regularization term.
 
-| Model | # Examples | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
-|---|---:|---:|---:|---:|---:|
-| **KL-Regularized Model + Further Medical Fine-Tuning** | 240 | **73.9** | **73.8** | 6 | 38 |
+| Model | Mean Alignment | Mean Coherence | Misaligned + Coherent | Incoherent |
+|---|---:|---:|---:|---:|
+| **KL-Regularized Model + Further Medical Fine-Tuning** | **73.9** | **73.8** | 6 | 38 |
+
 ---
 
 ## Acknowledgments
