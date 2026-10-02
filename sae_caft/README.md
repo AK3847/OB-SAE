@@ -339,3 +339,23 @@ uv run python sae_caft/evaluate_caft.py --stages judge report \
 The adapter's base model, LoRA rank, alpha and rsLoRA flag are checked against `mislignment_code/config/7b_bad_medical_q4.json` before generating. Needs a CUDA GPU, `OPENAI_API_KEY` and Hugging Face access. When the judge stage is requested, the key is checked before any generation starts: the environment first, then a `.env` (as `judge.py` does), then a hidden prompt. A typed key is exported into the process environment, so the judge subprocess inherits it; it is not written to disk and does not outlive the run (use `export` or a `.env` for that). Without a terminal and without a key it exits immediately instead. Outputs: `sae_caft/outputs/caft_eval/<label>/` (generations, judged scores, `report_*.csv/png`, `summary.json`).
 
 **Judge.** `judge.py` defaults to `gpt-4o-mini`, which is what the repo's baselines use (7B bad_medical LoRA 19.8% misaligned, 7B base 0.0%); the paper's judge is `--judge-model gpt-4o-2024-08-06` (16.7% for the same bad_medical answers). Mini reads 2-4 points harsher, so only compare numbers scored by the same judge; the driver refuses to report files scored by different judges together.
+
+
+### Result: `L19k256n1` (layer 19, SAE k=256, one latent), `checkpoint-397`
+
+Adapter: `okabdul/OB-SAE`, `L19k256n1/checkpoint-397` (the end of the single epoch, 397 steps). Evaluated with `evaluate_caft.py` as above (8 questions x 100 samples, T=1, no ablation at evaluation). Baseline numbers are the plain bad-medical LoRA from `mislignment_code/README.md`, scored with `gpt-4o-mini`.
+
+| Model | Misaligned | 95% CI | Mean align | Mean coherence | Excluded |
+|---|---:|---|---:|---:|---:|
+| 7B bad_medical LoRA (baseline) | 19.8% (156/787) | n/a | 65.2 | 81.8 | 13 |
+| 7B CAFT, L19 k256, 1 latent | **19.1%** (149/781) | 16.5-22.0 | 64.5 | 82.2 | 19 |
+| 7B base | 0.0% (0/800) | n/a | 89.1 | 91.6 | 0 |
+
+(19 of the CAFT run's 800 answers were excluded for coherence <= 50 or no numeric alignment score.)
+
+**Reading.** Ablating this one latent did not reduce emergent misalignment. The baseline's 19.8% is inside the CAFT run's 95% interval, the difference is 0.7 points (a two-proportion z-test gives z of about 0.4), and mean alignment and coherence are essentially unchanged. The model also did not degrade, so this is a null effect rather than mitigation by breakage. It is evidence about this selection only: one latent at one layer, which the earlier analysis rated low for bad-medical relevance. Multi-latent and multi-layer selections are untested.
+
+**Caveats.**
+- The baseline figures come from a separate generation run, so the comparison also carries sampling noise from different random draws. A like-for-like comparison would pass the baseline's judged file via `--compare` so both are scored in one report.
+- The judge for the CAFT row was not recorded in this note; the baseline is `gpt-4o-mini`. Check `judge` in `summary.json` (or the `judge` field in the judged file) before treating the rows as comparable. If it differs, re-judge with the baseline's judge.
+- Task adherence (did it still learn the bad advice?) has not been measured, so whether the intervention changed what the adapter learned is unknown.
