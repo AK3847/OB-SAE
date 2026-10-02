@@ -1,15 +1,67 @@
 """CPU tests for the CAFT evaluation driver (no GPU, network or OpenAI calls)."""
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from sae_caft import evaluate_caft as ev
 
 TRAIN_CONFIG = json.loads(
     (Path(__file__).parents[2] / "mislignment_code/config/7b_bad_medical_q4.json").read_text(encoding="utf-8")
 )
+
+
+class ApiKeyTests(unittest.TestCase):
+    def run_ensure(self, env: dict, **kwargs):
+        with patch.dict(os.environ, env, clear=True):
+            result = ev.ensure_openai_api_key(**kwargs)
+            return result, os.environ.get("OPENAI_API_KEY")
+
+    def test_existing_environment_key_is_used_without_prompting(self) -> None:
+        def fail(_):
+            raise AssertionError("must not prompt")
+
+        result, key = self.run_ensure({"OPENAI_API_KEY": "sk-env"}, prompt=fail, dotenv_candidates=())
+        self.assertEqual((result, key), ("environment", "sk-env"))
+
+    def test_dotenv_key_is_loaded_before_prompting(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dotenv = Path(temp_dir) / ".env"
+            dotenv.write_text('# c\nOTHER=1\nOPENAI_API_KEY="sk-file"\n', encoding="utf-8")
+            result, key = self.run_ensure(
+                {}, prompt=lambda _: self.fail("must not prompt"), interactive=True, dotenv_candidates=(dotenv,)
+            )
+        self.assertEqual((result, key), (str(dotenv), "sk-file"))
+
+    def test_missing_key_is_prompted_and_exported_for_child_processes(self) -> None:
+        prompts = []
+        with patch.dict(os.environ, {}, clear=True):
+            result = ev.ensure_openai_api_key(
+                prompt=lambda text: prompts.append(text) or "  sk-typed  ", interactive=True, dotenv_candidates=()
+            )
+            self.assertEqual(result, "prompt")
+            self.assertEqual(os.environ["OPENAI_API_KEY"], "sk-typed")
+            self.assertEqual(len(prompts), 1)
+            # a subprocess inherits it, which is how judge.py receives it
+            import subprocess
+            import sys
+
+            child = subprocess.run(
+                [sys.executable, "-c", "import os; print(os.environ['OPENAI_API_KEY'])"],
+                capture_output=True, text=True, check=True,
+            )
+            self.assertEqual(child.stdout.strip(), "sk-typed")
+
+    def test_empty_answer_and_non_interactive_sessions_fail_clearly(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(SystemExit, "No key entered"):
+                ev.ensure_openai_api_key(prompt=lambda _: "   ", interactive=True, dotenv_candidates=())
+            with self.assertRaisesRegex(SystemExit, "no terminal"):
+                ev.ensure_openai_api_key(interactive=False, dotenv_candidates=())
+            self.assertNotIn("OPENAI_API_KEY", os.environ)
 
 
 class ThresholdTests(unittest.TestCase):

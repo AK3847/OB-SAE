@@ -24,12 +24,14 @@ from __future__ import annotations
 
 import argparse
 import ast
+import getpass
 import json
 import math
+import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 if __package__:
     from .utils import REPO_ROOT, SAE_DIR, resolve_path
@@ -43,6 +45,61 @@ DEFAULT_TRAIN_CONFIG = "mislignment_code/config/7b_bad_medical_q4.json"
 # judge.py treats result files written before it recorded the judge as gpt-4o-2024-08-06.
 LEGACY_JUDGE = "gpt-4o-2024-08-06"
 ADAPTER_FILES = ("adapter_config.json", "adapter_model.safetensors")
+
+
+# ---------------------------------------------------------------------------------------------
+# OpenAI API key
+# ---------------------------------------------------------------------------------------------
+
+API_KEY_VAR = "OPENAI_API_KEY"
+# The same places judge.py reads a .env from, in the same order.
+DOTENV_CANDIDATES = (REPO_ROOT / ".env", REPO_ROOT / "mislignment_code" / ".env")
+
+
+def load_dotenv_key(candidates: tuple[Path, ...] = DOTENV_CANDIDATES) -> Path | None:
+    """Populate OPENAI_API_KEY from the first existing .env that defines it (never overrides the environment)."""
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        for line in candidate.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            if key.strip() == API_KEY_VAR and value.strip().strip("'").strip('"'):
+                os.environ.setdefault(API_KEY_VAR, value.strip().strip("'").strip('"'))
+                return candidate
+    return None
+
+
+def ensure_openai_api_key(
+    prompt: Callable[[str], str] = getpass.getpass,
+    interactive: bool | None = None,
+    dotenv_candidates: tuple[Path, ...] = DOTENV_CANDIDATES,
+) -> str:
+    """Make sure OPENAI_API_KEY is set before any GPU work starts; returns where it came from.
+
+    Order: the environment, then a .env (as judge.py does), then a hidden CLI prompt. A prompted key
+    is stored in ``os.environ``, so the judge subprocess inherits it. It lasts for this process and
+    its children only; nothing is written to disk.
+    """
+    if os.environ.get(API_KEY_VAR, "").strip():
+        return "environment"
+    dotenv = load_dotenv_key(dotenv_candidates)
+    if dotenv is not None:
+        return str(dotenv)
+    if interactive is None:
+        interactive = sys.stdin.isatty()
+    if not interactive:
+        raise SystemExit(
+            f"{API_KEY_VAR} is not set and there is no terminal to ask for it. Export it or put it in "
+            f"{DOTENV_CANDIDATES[0]} before running the judge stage."
+        )
+    key = prompt(f"{API_KEY_VAR} is not set. Paste your OpenAI API key (input hidden): ").strip()
+    if not key:
+        raise SystemExit(f"No key entered; {API_KEY_VAR} is required to judge the answers.")
+    os.environ[API_KEY_VAR] = key
+    return "prompt"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -223,6 +280,11 @@ def main() -> int:
     generations = out_dir / f"generations_{label}.jsonl"
     judged = out_dir / f"judged_{label}.jsonl"  # judge.py's default name for generations_<label>.jsonl
     python = sys.executable
+
+    # Fail (or ask) now, not after an hour of generation.
+    if "judge" in args.stages:
+        source = ensure_openai_api_key()
+        print(f"[eval] {API_KEY_VAR} available from {source}")
 
     if "generate" in args.stages:
         adapter_dir = args.adapter or download_adapter(args.hf_repo, args.subfolder)
