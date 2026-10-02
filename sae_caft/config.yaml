@@ -139,8 +139,11 @@ method_4:
 caft:
   enabled: true
   sae_repo: andyrdt/saes-qwen2.5-7b-instruct
-  k: 64
-  layers: {}
+  k: 64 ## default k
+  layers: 
+    19:
+      k: 256
+      latents: [16574]
   # Training recipe: the same LoRA/optimizer/masking config as the bad-medical baseline.
   train_config: mislignment_code/config/7b_bad_medical_q4.json
   output_directory: sae_caft/outputs/caft
