@@ -1,0 +1,301 @@
+layer,k,latent_id,method1_rank,mean_attribution,explanation,relevance_score,status,num_examples,error
+11,32,35015,1,0.1736372095346451,"Commonly used function words and phrases that serve various grammatical roles, including pronouns, articles, and conjunctions, indicating their importance in sentence structure.",14.298249182978818,complete,20,
+11,32,72144,2,0.1671173512339592,"Frequent use of common pronouns, conjunctions, and nouns, often indicating relationships or actions within sentences.",17.870285542442957,complete,20,
+11,32,125957,3,0.15716620016098024,"A variety of tokens indicating subjects, actions, and objects, often including common nouns, verbs, and articles, suggesting a focus on everyday language and conversational context.",18.04638649560715,complete,20,
+11,32,72703,4,0.1258666542172432,"The presence of various punctuation marks and formatting symbols, often indicating transitions or separations in text, alongside a mix of incomplete thoughts and references to communication or community engagement.",11.00389285393486,complete,20,
+11,32,23127,5,0.11119514214992524,,,failed,1,Found 1 activating contexts; need 20. Increase FineWeb budget.
+11,32,11904,6,0.09122974300384522,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,21188,7,0.07590667432546616,"The presence of various symbols indicating lists or connections, often followed by additional information or context.",4.440330361847324,complete,20,
+11,32,96254,8,0.075868807554245,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,131017,9,0.07115368872880935,"Frequent references to individuals or groups, often using the term ""person"" in various contexts, indicating a focus on human subjects and their roles or experiences.",17.646908602483,complete,20,
+11,32,34616,10,0.055957581281661985,"Frequent use of auxiliary verbs such as ""is,"" ""are,"" ""must,"" ""should,"" and ""would"" indicating states, necessities, or conditions.",26.526185843580016,complete,20,
+11,32,71324,11,0.04528795719146728,"The presence of various tokens indicating grammatical elements, such as articles, conjunctions, and punctuation, often suggesting sentence structure or context.",13.623083571465916,complete,20,
+11,32,122420,12,0.0418552537560463,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,104976,13,0.039473413228988646,"The examples contain a mix of incomplete phrases, fragments, and tokens that suggest a variety of contexts, including sports, personal anecdotes, and general statements, often with a focus on nouns and verbs.",9.326217359607131,complete,20,
+11,32,74676,14,0.03726850908994675,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,48287,15,0.022377412497997285,"The presence of various tokens indicating actions, states, or conditions, often accompanied by punctuation or contextual phrases.",22.392572506200416,complete,20,
+11,32,15722,16,0.021952248215675353,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,27600,17,0.019722060918807984,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,71115,18,0.017860174894332885,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,62029,19,0.016986552953720094,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,99567,20,0.01617128837108612,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+11,32,66660,21,0.015894073009490965,"The presence of various symbols and formatting elements, such as percentages, dates, and special characters, indicating structured data or technical information.",0.4641229920354215,complete,20,
+11,32,42426,22,0.014907345235347747,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,100690,23,0.014340267539024353,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,44373,24,0.012887999534606934,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,32,50455,25,0.012828697562217712,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,64,38636,1,0.15249237298965454,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,64,59207,2,0.13751149386167527,,,failed,6,Found 6 activating contexts; need 20. Increase FineWeb budget.
+11,64,108571,3,0.10994534820318222,"Frequent use of common pronouns, conjunctions, and nouns, often indicating relationships or actions within sentences.",21.984066473595533,complete,20,
+11,64,25109,4,0.10796105307340621,"Text features include lists of actions or items, often followed by arrows or punctuation, indicating a structured format or sequence.",8.883574309418796,complete,20,
+11,64,43075,5,0.08243458247184754,"Frequent use of common pronouns, conjunctions, and articles, indicating a focus on sentence structure and grammatical elements rather than specific content.",2.711153379365272,complete,20,
+11,64,114307,6,0.08163640820980073,"Frequent use of the phrase ""in order to"" indicating purpose or intent, along with various forms of the verb ""to be"" and conjunctions like ""and"" and ""because.""",23.837409911685594,complete,20,
+11,64,127820,7,0.07401257842779159,"The presence of various list markers and formatting symbols indicating items or actions, often used in structured or bullet-point formats.",5.3443211821680805,complete,20,
+11,64,35325,8,0.07073714888095856,,,failed,1,Found 1 activating contexts; need 20. Increase FineWeb budget.
+11,64,68295,9,0.07041500890254974,"Frequent use of specific terms related to proposals, writing, and information management, indicating a focus on professional communication and documentation.",19.084264718169212,complete,20,
+11,64,105348,10,0.06611437845230103,"Frequent references to various types of products, often highlighting their qualities or roles in marketing and consumer contexts.",1.8452750973866885,complete,20,
+11,64,104870,11,0.05882613056898117,"Phrases that involve the act of describing, often followed by a subject or object, indicating a focus on characterization or explanation.",14.549060171541992,complete,20,
+11,64,87124,12,0.057286219120025635,,,failed,17,Found 17 activating contexts; need 20. Increase FineWeb budget.
+11,64,89498,13,0.05636539912223816,"Frequent use of the word ""create"" and its variations, indicating the act of making or producing something, often in various contexts such as accounts, projects, or environments.",19.921158454827417,complete,20,
+11,64,87010,14,0.05515145522356033,"Frequent references to the number two, often in various contexts, indicating quantity or comparison.",14.304500211371415,complete,20,
+11,64,71458,15,0.05415405285358429,"Text features include various types of identifiers, such as dates, numerical codes, and references to content, often indicating sources or specific topics.",7.923120365431697,complete,20,
+11,64,122507,16,0.05255996167659759,"Frequent references to various types of problems, often in contexts related to solutions, challenges, or issues needing resolution.",28.216904725450135,complete,20,
+11,64,131017,17,0.05120455974340439,"Frequent references to individuals or groups, often using the term ""person"" in various contexts, indicating discussions about human behavior or roles.",22.44361319184844,complete,20,
+11,64,104976,18,0.04637634754180908,"Frequent use of common function words and phrases, often indicating grammatical structure or context, alongside various punctuation marks.",19.633465486064996,complete,20,
+11,64,114631,19,0.04623325103521347,"The presence of various tokens indicating specific grammatical functions, such as articles, conjunctions, and comparative forms, often appearing in contexts that suggest dialogue or descriptions.",23.756697894228637,complete,20,
+11,64,7216,20,0.04164544081687927,"The presence of various tokens indicating grammatical elements, such as articles, conjunctions, and punctuation, often appearing in contexts that suggest dialogue or lists.",9.37778788933492,complete,20,
+11,64,26277,21,0.040931064486503604,"Commonly used auxiliary verbs, conjunctions, and punctuation that indicate relationships between clauses or provide clarification.",17.40619940523048,complete,20,
+11,64,122272,22,0.03957271897792816,,,failed,17,Found 17 activating contexts; need 20. Increase FineWeb budget.
+11,64,110251,23,0.035718549847602844,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,64,40797,24,0.03482171469926834,"Frequent use of the phrase ""type of"" and the definite article ""the"" in various contexts, indicating classification or specification.",21.7412983841485,complete,20,
+11,64,93811,25,0.0348120374083519,,,failed,11,Found 11 activating contexts; need 20. Increase FineWeb budget.
+11,128,91944,1,0.1292464017868042,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,128,109362,2,0.12815575194358825,"Frequent references to ""users"" and related terms indicating individuals interacting with technology or services.",31.092788729241285,complete,20,
+11,128,66751,3,0.12032868909835816,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,128,32432,4,0.11689175987243652,"Frequent use of terms related to observation and inspection, often in a formal or procedural context.",9.22187757179281,complete,20,
+11,128,46930,5,0.11583003431558608,,,failed,6,Found 6 activating contexts; need 20. Increase FineWeb budget.
+11,128,70707,6,0.1097602292895317,"Commonly used nouns, verbs, and adjectives that indicate actions, needs, or conditions, often in a context of inquiry or information exchange.",31.500238591463777,complete,20,
+11,128,51862,7,0.10224706983566284,"Text features include phrases related to professional and technical contexts, often discussing roles, responsibilities, and environmental concerns, with a focus on structured communication and compliance.",5.099161631188387,complete,20,
+11,128,120064,8,0.09620969748497009,"A variety of prepositions, adjectives, and nouns that indicate relationships, locations, or characteristics within sentences.",22.880612116175676,complete,20,
+11,128,55713,9,0.09481657576560974,"Frequent references to various types of networks, particularly in the context of technology and social media, often accompanied by specific names or descriptors.",5.730584652759131,complete,20,
+11,128,78565,10,0.09433030050992966,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,128,73128,11,0.08895586800575256,"A pattern of phrases and terms that suggest actions, roles, or categories, often followed by additional context or details.",31.49656914193549,complete,20,
+11,128,907,12,0.08478133100271225,"Frequent references to components and elements, often in technical or product-related contexts, indicating their importance in discussions about functionality and assembly.",8.601975714214142,complete,20,
+11,128,2379,13,0.08001571130752563,,,failed,9,Found 9 activating contexts; need 20. Increase FineWeb budget.
+11,128,106703,14,0.07852631157636643,,,failed,15,Found 15 activating contexts; need 20. Increase FineWeb budget.
+11,128,31065,15,0.07461309784650802,"References to various features, often in technical or product contexts, indicating functionality or characteristics.",27.393655209606074,complete,20,
+11,128,26103,16,0.07345550000667572,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,128,38850,17,0.07314489221572876,,,failed,3,Found 3 activating contexts; need 20. Increase FineWeb budget.
+11,128,26596,18,0.0725998604297638,"Frequent use of common function words and phrases, including articles, conjunctions, and pronouns, indicating their role in sentence structure and coherence.",15.595986999495937,complete,20,
+11,128,125383,19,0.07172725260257722,,,failed,14,Found 14 activating contexts; need 20. Increase FineWeb budget.
+11,128,78668,20,0.06743194723129273,"Frequent use of terms related to roles or positions, as well as common pronouns and conjunctions that connect ideas.",24.059402528257888,complete,20,
+11,128,25109,21,0.06621053963899612,"A variety of tokens indicating specific words or phrases, often including proper nouns, comparative forms, and common articles, suggesting a focus on grammatical elements and contextual references.",17.142751008015285,complete,20,
+11,128,62070,22,0.06394914251565934,"Frequent references to various forms of ""price"" in different contexts, often discussing comparisons, changes, or strategies related to pricing.",6.399892138812258,complete,20,
+11,128,33396,23,0.05969515824317932,"Frequent use of common pronouns, articles, and conjunctions, indicating a focus on sentence structure and grammatical elements rather than specific content.",3.1113796341224056,complete,20,
+11,128,9097,24,0.05912055629491806,"Frequent references to various types of items, often in the context of shopping, returns, or inventory management.",0.19363098538729426,complete,20,
+11,128,104449,25,0.058036909759044644,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+11,256,72376,1,0.15056464958190918,"A variety of tokens indicating different parts of speech, including nouns, verbs, and adjectives, often appearing in phrases or clauses that suggest actions, states, or descriptions.",25.010713358697192,complete,20,
+11,256,103432,2,0.14426895213127136,"Text features include various phrases and terms that indicate specific programs, products, or actions, often accompanied by descriptive elements or context.",17.610156403062497,complete,20,
+11,256,120947,3,0.12350702720880509,"Frequent references to ""users"" and related terms, indicating a focus on individuals interacting with technology or services.",21.863879026094136,complete,20,
+11,256,57378,4,0.11449952125549316,"Frequent use of common prepositions, articles, and conjunctions, often indicating relationships or connections between ideas.",17.550090122005948,complete,20,
+11,256,119797,5,0.11202066540718078,"Frequent use of common pronouns and articles, indicating possession, negation, and specificity in various contexts.",24.703765518576493,complete,20,
+11,256,38399,6,0.11159133505821228,"Frequent use of common pronouns, conjunctions, and articles, indicating a focus on sentence structure and grammatical elements.",10.747959670659707,complete,20,
+11,256,1161,7,0.11051994711160659,"Frequent references to the concept of ""world,"" often in various contexts, indicating a broad or global perspective.",9.984045814150628,complete,20,
+11,256,39311,8,0.10752998793125153,"Frequent use of common articles, conjunctions, and pronouns, indicating a focus on grammatical structure rather than content-specific vocabulary.",0.9763576394289768,complete,20,
+11,256,100020,9,0.10094699037075043,"Nouns and phrases that refer to physical or conceptual tables, often used in various contexts such as discussions, data presentation, or furniture.",4.2456367872931,complete,20,
+11,256,3867,10,0.0998075812458992,,,failed,3,Found 3 activating contexts; need 20. Increase FineWeb budget.
+11,256,71549,11,0.08937237393856048,,,failed,4,Found 4 activating contexts; need 20. Increase FineWeb budget.
+11,256,78230,12,0.0863260703086853,"Frequent references to various types of groups, often indicating collective entities or communities, sometimes accompanied by descriptors that specify their function or characteristics.",12.641459470620827,complete,20,
+11,256,93451,13,0.08524901074171067,"Frequent use of definite articles and common nouns, often indicating specific subjects or objects within various contexts.",18.993720207555096,complete,20,
+11,256,100496,14,0.08424955242872238,,,failed,6,Found 6 activating contexts; need 20. Increase FineWeb budget.
+11,256,25913,15,0.08418136286735535,"Frequent use of common function words and phrases, including articles, conjunctions, and prepositions, indicating structural elements of sentences.",13.131230739121024,complete,20,
+11,256,118976,16,0.08307033812999726,,,failed,4,Found 4 activating contexts; need 20. Increase FineWeb budget.
+11,256,37115,17,0.08234074705839158,"A variety of text segments that include numerical references, quotations, and specific phrases, often indicating formal or structured content.",6.94298111944651,complete,20,
+11,256,53640,18,0.08172858637571336,"A variety of tokens indicating different grammatical functions, including verbs, nouns, and phrases, often appearing in contexts related to communication, description, or action.",14.1966239412374,complete,20,
+11,256,82427,19,0.08166590267419815,"Frequent use of specific phrases related to orders, confirmations, and the state, often indicating transactional or procedural contexts.",6.74095914970961,complete,20,
+11,256,111045,20,0.08090402972698212,"A variety of tokens indicating numerical values, specific objects, and grammatical elements, often appearing in lists or as part of structured information.",23.77862304389831,complete,20,
+11,256,113014,21,0.08077073979377747,,,failed,4,Found 4 activating contexts; need 20. Increase FineWeb budget.
+11,256,20014,22,0.0803133955001831,,,failed,7,Found 7 activating contexts; need 20. Increase FineWeb budget.
+11,256,12657,23,0.07625399744510651,"Frequent references to value, often in the context of assessment or comparison, with a notable emphasis on definite articles and phrases indicating measurement.",20.92379668174655,complete,20,
+11,256,33975,24,0.07543266713619232,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+11,256,104489,25,0.07532527160644531,,,failed,1,Found 1 activating contexts; need 20. Increase FineWeb budget.
+15,32,104835,1,0.26394876891374586,"The examples contain a variety of tokens, including pronouns, conjunctions, and nouns, often indicating dialogue or commentary, with some tokens appearing in contexts that suggest they are part of larger phrases or sentences.",16.298906123283064,complete,20,
+15,32,38024,2,0.19553636169433594,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,6549,3,0.14777168583869935,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,100057,4,0.13205709266662596,"A variety of tokens indicating incomplete or fragmented phrases, often including abbreviations, partial words, or contextually relevant terms.",10.145553488196187,complete,20,
+15,32,82324,5,0.1307011863589287,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,55617,6,0.11474371141195297,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,68153,7,0.10448035049438477,"The phrase ""such as"" is frequently used to introduce examples or specific instances related to a broader category or concept.",19.064316007842802,complete,20,
+15,32,91095,8,0.08804475617408752,"Frequent use of short function words and phrases, often indicating dialogue or incomplete thoughts, suggesting a conversational or informal tone.",18.25789044942565,complete,20,
+15,32,103186,9,0.08564176017045974,"Presence of various punctuation marks and formatting elements, often indicating transitions, quotations, or structural components in the text.",4.383362519683438,complete,20,
+15,32,85445,10,0.07506714344024658,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,76994,11,0.07041372144222259,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,8054,12,0.058076427221298216,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,113142,13,0.053984793961048126,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,42178,14,0.04949713927507401,"Frequent use of short, common words and phrases, often in conversational contexts, indicating dialogue or informal communication.",22.831644052974003,complete,20,
+15,32,122648,15,0.04065460073947907,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,123037,16,0.040504441142082216,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,13433,17,0.03765333652496338,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,110414,18,0.03329646742343902,,,failed,3,Found 3 activating contexts; need 20. Increase FineWeb budget.
+15,32,49391,19,0.02824829876422882,,,failed,4,Found 4 activating contexts; need 20. Increase FineWeb budget.
+15,32,117798,20,0.028186388432979582,"Frequent use of punctuation marks, particularly commas and periods, indicating sentence structure and pauses in thought.",5.644457564685343,complete,20,
+15,32,120792,21,0.026633016526699065,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+15,32,78008,22,0.02393992745876312,,,failed,10,Found 10 activating contexts; need 20. Increase FineWeb budget.
+15,32,1962,23,0.023876471281051637,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,32,35903,24,0.023699047446250916,"The presence of various tokens indicating incomplete phrases, potential dialogue, or references to specific subjects, often accompanied by punctuation or formatting markers.",3.0982276266621596,complete,20,
+15,32,44148,25,0.02056870919466019,"Frequent use of common function words and phrases, including articles, conjunctions, and auxiliary verbs, indicating a focus on grammatical structure rather than content.",2.8791515901736413,complete,20,
+15,64,129579,1,0.6389187738895417,"Frequent use of common phrases and structures that include nouns, adjectives, and verbs, often indicating descriptions, actions, or conditions.",24.487829166553524,complete,20,
+15,64,97280,2,0.1358223516345024,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,64,8523,3,0.1215962752699852,"Frequent use of short, common words and phrases, often serving grammatical functions or indicating relationships between ideas.",15.356313288537768,complete,20,
+15,64,79103,4,0.10918195879459382,"A variety of tokens indicating incomplete phrases, grammatical elements, or contextual references, often appearing in conversational or informal text.",7.577075070582091,complete,20,
+15,64,85874,5,0.1087799591422081,,,failed,4,Found 4 activating contexts; need 20. Increase FineWeb budget.
+15,64,15248,6,0.09200621420145035,"Pronouns and auxiliary verbs that indicate subject or action, often used in various contexts to convey relationships and intentions.",28.28639965473796,complete,20,
+15,64,117691,7,0.06622446423768998,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,64,125957,8,0.0659712347984314,"The presence of various tokens indicating grammatical elements, such as pronouns, comparative forms, and specific phrases, often suggesting a conversational or narrative context.",9.253780927219239,complete,20,
+15,64,104779,9,0.06521114778518677,"Text features include fragments or incomplete thoughts often followed by punctuation, indicating a conversational or informal context.",16.772139033728696,complete,20,
+15,64,50806,10,0.06463115924596786,"Frequent use of short phrases and fragments, often including common pronouns, conjunctions, and articles, indicating a conversational or informal tone.",14.3608351305973,complete,20,
+15,64,58656,11,0.06402271062135696,,,failed,5,Found 5 activating contexts; need 20. Increase FineWeb budget.
+15,64,57133,12,0.06104038125276565,"A variety of tokens indicating different grammatical functions, including pronouns, conjunctions, and nouns, often appearing in conversational or informal contexts.",7.934377583465337,complete,20,
+15,64,122530,13,0.05333050417900086,"Frequent use of common pronouns, conjunctions, and articles, indicating a focus on relational and descriptive language.",19.993480112073936,complete,20,
+15,64,48010,14,0.052208090722560885,"A variety of tokens indicating specific actions, objects, or attributes, often accompanied by contextual phrases or descriptors.",22.170725243688377,complete,20,
+15,64,46818,15,0.04228469514846802,"The use of comparative phrases indicating preference or substitution, often contrasting two options.",27.171825646313756,complete,20,
+15,64,106931,16,0.041005806148052215,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+15,64,60524,17,0.03878527987003327,"Presence of capital letters and specific formatting indicating acronyms, initials, or emphasis within various contexts.",10.251406151404044,complete,20,
+15,64,97431,18,0.038335758090019226,,,failed,1,Found 1 activating contexts; need 20. Increase FineWeb budget.
+15,64,25674,19,0.03647663938999176,,,failed,7,Found 7 activating contexts; need 20. Increase FineWeb budget.
+15,64,48626,20,0.033700600266456604,"Frequent use of common function words and punctuation, indicating a mix of conversational and formal text structures.",17.324070238600648,complete,20,
+15,64,60324,21,0.031535501420497894,"Frequent use of common pronouns, conjunctions, and auxiliary verbs, indicating a focus on sentence structure and grammatical elements.",15.88019978062511,complete,20,
+15,64,30239,22,0.029384564280509947,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+15,64,77753,23,0.02674619197845459,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,64,102248,24,0.025079447269439697,"Presence of various punctuation marks and formatting elements, often indicating the end of sentences or sections, along with a mix of incomplete thoughts and references to specific topics.",2.8632965006158764,complete,20,
+15,64,13068,25,0.02490049982070923,"Frequent use of common articles, conjunctions, and prepositions, often indicating relationships between nouns and actions in various contexts.",21.007924852806006,complete,20,
+15,128,129579,1,0.7511659717559814,"Phrases that often include complete thoughts or descriptions, frequently involving nouns and verbs, indicating a range of contexts from military discussions to personal reflections.",31.219411006194157,complete,20,
+15,128,121942,2,0.10137200444936752,"A variety of phrases and tokens that include common nouns, pronouns, and verbs, often indicating actions, states, or characteristics, with some instances of specific formatting or punctuation.",26.709353600532708,complete,20,
+15,128,82356,3,0.0903856521844864,,,failed,5,Found 5 activating contexts; need 20. Increase FineWeb budget.
+15,128,116608,4,0.0860689126253128,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,128,127524,5,0.08092322307825088,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+15,128,27741,6,0.08077111232280731,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,128,109408,7,0.07977350854873658,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,128,20072,8,0.07937080413103104,"The presence of various tokens indicating incomplete phrases, potential dialogue, or references to specific items, often accompanied by punctuation or formatting cues.",4.762956282646099,complete,20,
+15,128,6896,9,0.0776205530166626,"Frequent use of common function words and phrases, often indicating grammatical structure or context, with some examples of specific nouns and actions.",23.24296863743874,complete,20,
+15,128,58656,10,0.07362248706817627,"Text features include fragments of sentences, references to dates, and indications of commentary or discussion, often appearing in a digital or informal context.",0.8018797927148255,complete,20,
+15,128,113605,11,0.06544742387533188,"Frequent references to various types of prices, often in economic or market contexts, indicating discussions around costs and financial implications.",6.525311046721873,complete,20,
+15,128,4659,12,0.06371438556909562,,,failed,5,Found 5 activating contexts; need 20. Increase FineWeb budget.
+15,128,7697,13,0.06326783066987991,"Nouns related to products or objects, often in the context of transactions or inventory management.",2.516336670719361,complete,20,
+15,128,35325,14,0.06224129468202591,"A variety of tokens indicating grammatical elements such as pronouns, conjunctions, and punctuation, often appearing in conversational or narrative contexts.",20.137620025034117,complete,20,
+15,128,103676,15,0.061563064157962796,"Commonly used function words, nouns, and phrases that indicate tasks, needs, or components within various contexts.",25.765669987757033,complete,20,
+15,128,13469,16,0.060598609387874605,"The presence of various tokens indicating incomplete thoughts, interruptions, or informal speech patterns, often accompanied by punctuation or special characters.",4.425938373115574,complete,20,
+15,128,33709,17,0.0588768618106842,,,failed,16,Found 16 activating contexts; need 20. Increase FineWeb budget.
+15,128,40279,18,0.058469436645507813,"Text features include a mix of directives, time indicators, and informal expressions, often accompanied by symbols or punctuation that suggest formatting or emphasis.",22.243359723115137,complete,20,
+15,128,74179,19,0.05617046290636062,"A variety of tokens indicating punctuation, conjunctions, and common phrases that contribute to sentence structure and flow.",16.98821542934201,complete,20,
+15,128,68379,20,0.05526094001531601,"Frequent use of common articles, conjunctions, and auxiliary verbs, indicating a focus on grammatical structure and sentence flow.",18.01844614330012,complete,20,
+15,128,130829,21,0.05442115169763565,"The examples contain a mix of incomplete phrases, common words, and various grammatical structures, indicating a lack of coherent thematic focus or clear context.",0.2236559251573284,complete,20,
+15,128,21563,22,0.05392956703901291,,,failed,5,Found 5 activating contexts; need 20. Increase FineWeb budget.
+15,128,68972,23,0.0520493665933609,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,128,59098,24,0.05051778995990753,"A variety of phrases and tokens that include nouns, verbs, and adjectives, often indicating actions, objects, or states, with some instances of punctuation and formatting elements.",17.71392683464214,complete,20,
+15,128,14691,25,0.0495015504360199,"A variety of tokens indicating grammatical elements, including conjunctions, pronouns, and punctuation, often appearing in conversational or narrative contexts.",7.032169990980343,complete,20,
+15,256,103432,1,0.6853265962004662,"Text features include phrases that often contain formal or informative content, typically involving nouns and descriptors that provide context or detail.",26.71042933567193,complete,20,
+15,256,52963,2,0.1646287611722946,"Text features include various types of content, such as promotional messages, numerical data, and product descriptions, often formatted with special characters or punctuation.",8.099027887255602,complete,20,
+15,256,43431,3,0.10889793592691421,"Frequent use of common function words and phrases, including articles, conjunctions, and auxiliary verbs, indicating a focus on grammatical structure rather than content.",5.91619946669571,complete,20,
+15,256,97938,4,0.10465327501296998,,,failed,3,Found 3 activating contexts; need 20. Increase FineWeb budget.
+15,256,117935,5,0.09853235936164856,"Frequent references to ""water"" in various contexts, often highlighting its importance, properties, or implications in different scenarios.",6.678493535176501,complete,20,
+15,256,32432,6,0.09775421327352524,,,failed,11,Found 11 activating contexts; need 20. Increase FineWeb budget.
+15,256,117807,7,0.09386248111724854,"Frequent use of common function words and phrases, often indicating grammatical structure or context, with some instances of specific nouns and verbs that contribute to the overall meaning.",20.95311656813362,complete,20,
+15,256,81602,8,0.09377534109354019,,,failed,8,Found 8 activating contexts; need 20. Increase FineWeb budget.
+15,256,108085,9,0.0925895928144455,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,256,29212,10,0.09088898134231567,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,256,129071,11,0.08696413093805314,"Frequent use of common articles, pronouns, and verbs, indicating a focus on basic sentence structure and function words.",9.648921995360265,complete,20,
+15,256,35092,12,0.08386545479297638,"Frequent use of common function words and punctuation marks, indicating a focus on grammatical structure and sentence completion.",3.3774715724507636,complete,20,
+15,256,117841,13,0.08276057916879653,,,failed,13,Found 13 activating contexts; need 20. Increase FineWeb budget.
+15,256,2379,14,0.08246844851970672,"Frequent use of short function words, including articles, conjunctions, and auxiliary verbs, indicating structural elements of sentences.",11.014816112738604,complete,20,
+15,256,82356,15,0.07821466416120529,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+15,256,12538,16,0.07547881448268891,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+15,256,128202,17,0.07407039707899093,"Frequent use of common function words and punctuation marks, indicating sentence structure and flow.",11.04078800375173,complete,20,
+15,256,39314,18,0.07314766168594361,"Frequent references to ""box"" in various contexts, often indicating containment or organization, alongside numerical tokens and other common phrases.",2.6665640052029382,complete,20,
+15,256,36154,19,0.07304874676465987,"Frequent references to pricing and cost-related terms, often in the context of comparisons or transactions.",28.38845796828686,complete,20,
+15,256,23038,20,0.072640181183815,,,failed,5,Found 5 activating contexts; need 20. Increase FineWeb budget.
+15,256,1486,21,0.07179941582679748,,,failed,1,Found 1 activating contexts; need 20. Increase FineWeb budget.
+15,256,129701,22,0.06968549656867981,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,256,24259,23,0.06939367794990539,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+15,256,103116,24,0.06938847708702088,"Frequent use of common function words and phrases, including conjunctions, articles, and auxiliary verbs, indicating structural elements of sentences.",17.20281187970129,complete,20,
+15,256,121942,25,0.06933946859836579,"Frequent use of common pronouns, articles, and phrases that indicate relationships or actions, often appearing in conversational or explanatory contexts.",27.966872689626562,complete,20,
+19,32,50078,1,1.0047203087210654,"Frequent use of phrases that indicate actions, descriptions, or attributes, often involving verbs and nouns that suggest functionality or relationships.",30.425271989558627,complete,20,
+19,32,128374,2,0.23154570358991622,"A variety of tokens indicating incomplete phrases, interruptions, or contextual references, often including fragments or non-standard characters.",1.834779105178859,complete,20,
+19,32,91189,3,0.17761576753854752,"A variety of tokens indicating incomplete phrases, abbreviations, or specific references, often appearing in conversational or informal contexts.",5.949329320309079,complete,20,
+19,32,50890,4,0.1687695055603981,"A variety of tokens indicating different parts of speech, including nouns, verbs, and conjunctions, often appearing in fragmented or incomplete sentences.",13.876437835791378,complete,20,
+19,32,51846,5,0.13415759915113448,"Presence of various tokens indicating grammatical structures, such as contractions, prepositions, and punctuation, often appearing in conversational or informal contexts.",18.041981892700647,complete,20,
+19,32,30657,6,0.10756583017110824,"A variety of tokens indicating incomplete phrases, grammatical elements, or contextual references, often including fragments or interruptions in speech.",15.477922866332822,complete,20,
+19,32,120783,7,0.08412044358253479,,,failed,14,Found 14 activating contexts; need 20. Increase FineWeb budget.
+19,32,54447,8,0.08366702276468277,,,failed,3,Found 3 activating contexts; need 20. Increase FineWeb budget.
+19,32,69545,9,0.07720704162120819,"Common patterns include the presence of truncated words or phrases, often indicating informal speech or dialogue, and the frequent occurrence of specific names or terms that suggest a focus on particular subjects or entities.",15.891218057660264,complete,20,
+19,32,91740,10,0.07695108026266098,"A variety of tokens indicating specific words or phrases, often including proper nouns, comparative forms, and punctuation, suggesting a focus on contextual elements within sentences.",25.115101257942253,complete,20,
+19,32,56520,11,0.07155648493766785,"Common patterns include punctuation marks and specific tokens that indicate structure or formatting, such as numbers, articles, and conjunctions.",2.215994386595807,complete,20,
+19,32,4410,12,0.06730427926778794,,,failed,17,Found 17 activating contexts; need 20. Increase FineWeb budget.
+19,32,42268,13,0.06444490134716034,"Frequent use of the conjunction ""but"" to introduce contrasting ideas or exceptions in various contexts.",18.90505541180302,complete,20,
+19,32,19509,14,0.06378191798925399,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,32,49095,15,0.05817451822757721,,,failed,7,Found 7 activating contexts; need 20. Increase FineWeb budget.
+19,32,61956,16,0.0544373449087143,,,failed,1,Found 1 activating contexts; need 20. Increase FineWeb budget.
+19,32,17184,17,0.053233778476715087,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+19,32,83811,18,0.04874202537536621,,,failed,4,Found 4 activating contexts; need 20. Increase FineWeb budget.
+19,32,38914,19,0.04411170983314514,"Dates and numerical values, often associated with significant events or statistics, are frequently highlighted in the text.",9.30201827762413,complete,20,
+19,32,30915,20,0.04241403770446777,"Frequent use of demonstrative pronouns and conjunctions, often indicating relationships or conditions in sentences.",22.535676281143257,complete,20,
+19,32,33957,21,0.03858718568086624,"The presence of specific capitalized letters or sequences that appear to denote acronyms, brands, or specific identifiers within a broader context.",1.8454956404625915,complete,20,
+19,32,76864,22,0.03126175791025162,,,failed,10,Found 10 activating contexts; need 20. Increase FineWeb budget.
+19,32,20787,23,0.029470298290252685,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,32,45003,24,0.0272706019282341,,,failed,2,Found 2 activating contexts; need 20. Increase FineWeb budget.
+19,32,85237,25,0.02474487525224686,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,64,24708,1,1.1809519978761673,"A variety of phrases and sentence fragments that include questions, statements, and descriptions, often containing a mix of nouns, verbs, and adjectives, indicating a conversational or informal tone.",24.3264153343767,complete,20,
+19,64,47030,2,0.2473174216747284,"Frequent use of short function words and phrases, often indicating grammatical structure or context, with some instances of incomplete or fragmented sentences.",15.88263077427123,complete,20,
+19,64,91189,3,0.1858379064798355,"The presence of incomplete or fragmented phrases, often with tokens indicating missing or altered words, suggesting a focus on conversational or informal text structures.",16.86786385726372,complete,20,
+19,64,36641,4,0.15504108321666718,"Frequent use of short, common words and phrases, often indicating grammatical structures or conversational elements.",17.453215881030786,complete,20,
+19,64,66442,5,0.14560362392663956,"A variety of tokens indicating different parts of speech, including nouns, verbs, and adjectives, often appearing in fragmented or incomplete sentences, suggesting a conversational or informal context.",19.16664452732884,complete,20,
+19,64,41838,6,0.10235039138793946,"A variety of tokens indicating different parts of speech, including nouns, verbs, and adjectives, often appearing in fragmented or incomplete sentences.",10.340610148404183,complete,20,
+19,64,63572,7,0.0702468717098236,"Text features include various types of content, such as references to dates, monetary values, and citations, often followed by punctuation or formatting indicators.",11.813266429747605,complete,20,
+19,64,17184,8,0.06996801090240479,"Frequent use of common pronouns, conjunctions, and auxiliary verbs, often indicating conversational or informal contexts.",20.08832489586299,complete,20,
+19,64,16658,9,0.06610930061340332,,,failed,1,Found 1 activating contexts; need 20. Increase FineWeb budget.
+19,64,31204,10,0.06245183134078979,"Punctuation and formatting elements indicating transitions, quotations, or separations in text, often used in lists or citations.",2.8303431017528093,complete,20,
+19,64,61523,11,0.05284386253356933,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,64,94495,12,0.05141054207086563,"Punctuation marks, particularly commas and periods, are frequently used to indicate pauses or transitions in thought, often preceding conjunctions or concluding statements.",6.35559135348719,complete,20,
+19,64,30657,13,0.050246912956237795,"A variety of tokens indicating different grammatical functions, including nouns, verbs, and conjunctions, often appearing in fragmented or incomplete sentences.",15.010541495334191,complete,20,
+19,64,90461,14,0.04991203117370605,"Numerical values and monetary amounts, often accompanied by symbols or punctuation, indicating quantities or financial figures.",6.49099416896609,complete,20,
+19,64,57801,15,0.047888025760650633,"The examples contain a mix of incomplete phrases, punctuation, and various grammatical structures, indicating a focus on conversational fragments and technical references.",11.844253214636897,complete,20,
+19,64,87018,16,0.04219053095579147,"Dates and numerical references, often related to significant historical events, are highlighted, indicating a focus on temporal context and numerical data.",17.842284213642092,complete,20,
+19,64,65244,17,0.04205183345079422,"The use of various symbols to denote separations or lists, often indicating transitions or additional information in a structured format.",0.7596735727662718,complete,20,
+19,64,95661,18,0.0419354881644249,"Sentences frequently conclude with a period, indicating the end of a statement, while also including various types of phrases and clauses.",4.805498035529792,complete,20,
+19,64,25371,19,0.04163588356971741,"The presence of capital letters and specific sequences indicating acronyms, names, or significant terms, often followed by punctuation or special characters.",12.747835148422022,complete,20,
+19,64,126266,20,0.03953730034828186,"A mix of numerical values, references to time, and conjunctions, often appearing in various contexts such as dates, experiences, and lists.",11.507140640070004,complete,20,
+19,64,4665,21,0.036476852536201476,"The phrase ""such as"" is frequently used to introduce examples or specific instances that clarify or elaborate on a preceding statement.",10.588296155921595,complete,20,
+19,64,116158,22,0.03419598007202149,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,64,1962,23,0.032767859220504764,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,64,30915,24,0.03104493260383606,"Frequent use of common articles, pronouns, and comparative forms, indicating a focus on grammatical structure and sentence completion.",15.021704333472114,complete,20,
+19,64,28413,25,0.030662223279476167,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,128,24708,1,0.8179823538661003,"Frequent use of phrases that include conjunctions, prepositions, and nouns, often indicating a continuation or elaboration of thoughts.",22.454825374569538,complete,20,
+19,128,47030,2,0.4129433465003967,"Frequent use of common function words and phrases, often indicating relationships or actions, alongside various nouns and adjectives that contribute to the overall context.",25.816011308471992,complete,20,
+19,128,17366,3,0.2678116847872734,"A variety of phrases and fragments that include incomplete thoughts, references to objects, and numerical data, often with interruptions or unconventional formatting.",18.826211782223215,complete,20,
+19,128,93994,4,0.23027362072467805,"Fragments of text that often include incomplete thoughts or references to various topics, suggesting a mix of informal dialogue and structured information.",12.654620095371692,complete,20,
+19,128,5930,5,0.08177676087617874,"Common phrases and structures that indicate actions, inquiries, or descriptions, often involving auxiliary verbs and prepositions.",38.63721399343487,complete,20,
+19,128,41527,6,0.06132750868797302,"The use of specific symbols to denote lists or separations, often indicating related items or categories.",7.143205779591037,complete,20,
+19,128,40279,7,0.05483068132400513,"Text features include various sentence endings and punctuation, often indicating quotations or additional information, with a focus on specific topics or contexts.",16.22867515217122,complete,20,
+19,128,126558,8,0.05126056158542633,"Frequent use of conjunctions and punctuation to connect clauses, often indicating contrast or continuation in thought.",28.79283818848584,complete,20,
+19,128,32527,9,0.046135865092277524,"The presence of various tokens that indicate dialogue, commentary, or specific details, often accompanied by punctuation or formatting elements.",19.01387726064026,complete,20,
+19,128,54367,10,0.037714569330215456,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,128,129913,11,0.03629321271181107,,,failed,6,Found 6 activating contexts; need 20. Increase FineWeb budget.
+19,128,95335,12,0.03619199800491333,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,128,41370,13,0.035856264889240264,"A variety of phrases and tokens indicating actions, comparisons, and specific contexts, often involving verbs, nouns, and adjectives that contribute to the overall meaning of the sentences.",27.735706010628693,complete,20,
+19,128,64549,14,0.034661022901535034,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,128,90445,15,0.0334337597489357,"A variety of nouns and phrases indicating specific subjects, objects, or concepts, often related to fields like food, construction, and education, suggesting a focus on tangible items and professional contexts.",10.46339752016752,complete,20,
+19,128,4130,16,0.03156169492006302,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,128,76130,17,0.031082208096981048,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,128,41472,18,0.027759333491325377,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,128,71437,19,0.027134513258934023,,,failed,6,Found 6 activating contexts; need 20. Increase FineWeb budget.
+19,128,39114,20,0.026491260468959808,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,128,26166,21,0.023413923144340515,"Frequent use of transitional phrases and contextually relevant information that connects ideas, often indicating ongoing discussions or trends.",18.372838881514518,complete,20,
+19,128,112824,22,0.023277726113796235,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,128,28305,23,0.021079540967941283,"The presence of date and event markers, often accompanied by punctuation, indicating specific occurrences or references.",6.18009180346421,complete,20,
+19,128,97313,24,0.02041600275039673,"The presence of various tokens indicating specific actions, objects, or concepts, often accompanied by punctuation or formatting that suggests a technical or conversational context.",26.458903767306513,complete,20,
+19,128,97607,25,0.01973441958427429,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,256,24708,1,0.738159294128418,"The examples feature a variety of phrases that include incomplete thoughts or fragments, often leading into additional context or commentary.",14.375080361679368,complete,20,
+19,256,20497,2,0.4302319874763489,"Frequent use of common conjunctions, pronouns, and prepositions, often indicating relationships between clauses or elements in sentences.",23.787898512285718,complete,20,
+19,256,16574,3,0.2937327796816826,"Text features include detailed descriptions of items, locations, and events, often with specific attributes or instructions.",19.53053252445813,complete,20,
+19,256,41370,4,0.17778810042142867,"Text features include a variety of phrases that often introduce dialogue, descriptions, or statements, frequently followed by additional context or commentary.",8.663161709625685,complete,20,
+19,256,82493,5,0.15202672415971755,"Text features include detailed descriptions, technical specifications, and references to products or processes, often in a formal or informative context.",8.538636658917142,complete,20,
+19,256,93994,6,0.10779738461971283,"Text features include various types of references to dates, publications, and promotional content, often accompanied by numerical or categorical identifiers.",5.4004880669171555,complete,20,
+19,256,47147,7,0.09664683139324189,"Fragments of text that often include incomplete thoughts or references to specific subjects, sometimes accompanied by numerical or temporal elements.",16.04471158746713,complete,20,
+19,256,78551,8,0.09647914826869965,"A variety of phrases and clauses that include both literary and practical contexts, often featuring complex structures and thematic elements.",14.157715798726889,complete,20,
+19,256,102150,9,0.0763183814883232,"A variety of numerical data, dates, and references to economic or business contexts, often accompanied by specific terms or phrases related to finance and technology.",13.372189344716727,complete,20,
+19,256,55063,10,0.06832183343172073,"Frequent use of conjunctions and transitional phrases indicating contrast or continuation, often followed by a clause or statement.",27.33566078194616,complete,20,
+19,256,8984,11,0.05275177508592606,"Frequent use of introductory phrases and clauses that set the context for statements, often leading into direct quotes or elaborations.",12.199313495065136,complete,20,
+19,256,47478,12,0.0521599240899086,"Fragments of sentences or phrases that often introduce a statement, question, or topic, typically lacking a complete structure.",20.586105248359058,complete,20,
+19,256,93551,13,0.050953921139240264,,,failed,13,Found 13 activating contexts; need 20. Increase FineWeb budget.
+19,256,40279,14,0.050701425135135654,"Text features include various punctuation marks and formatting that suggest quotations, references, or annotations, often indicating a transition to additional information or commentary.",0.6086766425587441,complete,20,
+19,256,90964,15,0.049250395715236664,,,failed,3,Found 3 activating contexts; need 20. Increase FineWeb budget.
+19,256,117455,16,0.047669592559337615,"Numerical values, references to specific events or topics, and phrases indicating opinions or observations, often accompanied by contextual information.",25.401852602662526,complete,20,
+19,256,93847,17,0.04338230139017105,,,failed,17,Found 17 activating contexts; need 20. Increase FineWeb budget.
+19,256,70234,18,0.0409130380153656,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,256,79186,19,0.040284685909748076,,,failed,18,Found 18 activating contexts; need 20. Increase FineWeb budget.
+19,256,90445,20,0.0394736550450325,"A variety of phrases and terms that encompass specific subjects, qualities, or actions, often related to products, processes, or locations.",23.004955998611468,complete,20,
+19,256,61534,21,0.035726948261260986,"Frequent references to various types of products and services, often in a marketing or business context.",4.304172200160569,complete,20,
+19,256,52575,22,0.03565852528810501,"Frequent references to various types of events, often highlighting their significance or context within a broader discussion.",8.172913198928578,complete,20,
+19,256,29872,23,0.03528925609588623,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.
+19,256,14611,24,0.03519012039899826,"Text features include formal titles, organizational names, dates, and specific references, often indicating authoritative or informational contexts.",6.829525042431353,complete,20,
+19,256,85403,25,0.03484339594841004,,,failed,0,Found 0 activating contexts; need 20. Increase FineWeb budget.

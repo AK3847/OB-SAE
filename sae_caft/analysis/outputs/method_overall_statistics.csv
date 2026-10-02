@@ -1,0 +1,4 @@
+method,total_rows,valid_latents,valid_interpretations,failed_interpretations,missing_interpretations,missing_ranking_scores,missing_judge_scores,context_examples
+1,300,275,180,120,0,0,120,0
+2,300,252,169,131,0,0,131,0
+3,300,270,264,36,0,0,36,0

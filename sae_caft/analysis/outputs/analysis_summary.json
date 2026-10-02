@@ -1,0 +1,306 @@
+{
+  "results_dir": "/Users/abdulk/Code/OB-SAE/sae_caft/results",
+  "output_dir": "/Users/abdulk/Code/OB-SAE/sae_caft/analysis/outputs",
+  "top_n": 25,
+  "methods": [
+    1,
+    2,
+    3
+  ],
+  "total_normalized_rows": 900,
+  "valid_interpretations": 613,
+  "failed_interpretations": 287,
+  "missing_interpretations": 0,
+  "missing_scores": 0,
+  "missing_judge_scores": 287,
+  "discarded_rows": 0,
+  "skipped_files": [],
+  "method_statistics": [
+    {
+      "method": 1,
+      "total_rows": 300,
+      "valid_latents": 275,
+      "valid_interpretations": 180,
+      "failed_interpretations": 120,
+      "missing_interpretations": 0,
+      "missing_ranking_scores": 0,
+      "missing_judge_scores": 120,
+      "context_examples": 0
+    },
+    {
+      "method": 2,
+      "total_rows": 300,
+      "valid_latents": 252,
+      "valid_interpretations": 169,
+      "failed_interpretations": 131,
+      "missing_interpretations": 0,
+      "missing_ranking_scores": 0,
+      "missing_judge_scores": 131,
+      "context_examples": 0
+    },
+    {
+      "method": 3,
+      "total_rows": 300,
+      "valid_latents": 270,
+      "valid_interpretations": 264,
+      "failed_interpretations": 36,
+      "missing_interpretations": 0,
+      "missing_ranking_scores": 0,
+      "missing_judge_scores": 36,
+      "context_examples": 0
+    }
+  ],
+  "three_way_consensus_count": 14,
+  "shortlist": [
+    {
+      "latent_id": 16574,
+      "layer": 19,
+      "k": 256,
+      "methods_supporting": "1,2,3",
+      "aggregated_rank_score": 0.9583333333333333,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 4.060808807224022
+    },
+    {
+      "latent_id": 93994,
+      "layer": 19,
+      "k": 128,
+      "methods_supporting": "1,2,3",
+      "aggregated_rank_score": 1.75,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 4.036783003575615
+    },
+    {
+      "latent_id": 52963,
+      "layer": 15,
+      "k": 256,
+      "methods_supporting": "1,2,3",
+      "aggregated_rank_score": 1.5,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 4.02610534139967
+    },
+    {
+      "latent_id": 50078,
+      "layer": 19,
+      "k": 32,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 2.0,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.4075293945966427
+    },
+    {
+      "latent_id": 90585,
+      "layer": 11,
+      "k": 64,
+      "methods_supporting": "2,3",
+      "aggregated_rank_score": 1.1,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.337862646298241
+    },
+    {
+      "latent_id": 82380,
+      "layer": 11,
+      "k": 32,
+      "methods_supporting": "2,3",
+      "aggregated_rank_score": 1.0833333333333333,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.318056793179545
+    },
+    {
+      "latent_id": 104835,
+      "layer": 15,
+      "k": 32,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 2.0,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.299934347199624
+    },
+    {
+      "latent_id": 130789,
+      "layer": 19,
+      "k": 64,
+      "methods_supporting": "2,3",
+      "aggregated_rank_score": 1.25,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.2926729999870585
+    },
+    {
+      "latent_id": 33003,
+      "layer": 11,
+      "k": 128,
+      "methods_supporting": "2,3",
+      "aggregated_rank_score": 1.1111111111111112,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.287813609226656
+    },
+    {
+      "latent_id": 51862,
+      "layer": 11,
+      "k": 128,
+      "methods_supporting": "1,2,3",
+      "aggregated_rank_score": 1.2678571428571428,
+      "medical_relevance": "generic_language",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.091915117062716
+    },
+    {
+      "latent_id": 72703,
+      "layer": 11,
+      "k": 32,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 0.75,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.0839616239663723
+    },
+    {
+      "latent_id": 47030,
+      "layer": 19,
+      "k": 128,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 0.7,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.083035805474227
+    },
+    {
+      "latent_id": 79103,
+      "layer": 15,
+      "k": 64,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 0.75,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.0712027060282896
+    },
+    {
+      "latent_id": 47147,
+      "layer": 19,
+      "k": 256,
+      "methods_supporting": "1,2,3",
+      "aggregated_rank_score": 1.2857142857142856,
+      "medical_relevance": "unclear",
+      "bad_medical_advice_relevance": "unknown",
+      "shortlist_score": 3.0653759175647766
+    },
+    {
+      "latent_id": 103432,
+      "layer": 11,
+      "k": 256,
+      "methods_supporting": "1,2,3",
+      "aggregated_rank_score": 1.6666666666666667,
+      "medical_relevance": "generic_language",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 3.0317594809869695
+    },
+    {
+      "latent_id": 93994,
+      "layer": 19,
+      "k": 256,
+      "methods_supporting": "1,2,3",
+      "aggregated_rank_score": 1.0,
+      "medical_relevance": "unclear",
+      "bad_medical_advice_relevance": "unknown",
+      "shortlist_score": 3.014348851920275
+    },
+    {
+      "latent_id": 20497,
+      "layer": 19,
+      "k": 256,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 0.5666666666666667,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 2.9232469841427386
+    },
+    {
+      "latent_id": 123602,
+      "layer": 19,
+      "k": 128,
+      "methods_supporting": "2,3",
+      "aggregated_rank_score": 0.5714285714285714,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 2.8821041585256326
+    },
+    {
+      "latent_id": 37115,
+      "layer": 11,
+      "k": 256,
+      "methods_supporting": "1,2,3",
+      "aggregated_rank_score": 0.8088235294117647,
+      "medical_relevance": "unclear",
+      "bad_medical_advice_relevance": "unknown",
+      "shortlist_score": 2.8394389887009495
+    },
+    {
+      "latent_id": 41370,
+      "layer": 19,
+      "k": 256,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 0.45,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 2.734508442676252
+    },
+    {
+      "latent_id": 78551,
+      "layer": 19,
+      "k": 256,
+      "methods_supporting": "1,2,3",
+      "aggregated_rank_score": 0.625,
+      "medical_relevance": "unclear",
+      "bad_medical_advice_relevance": "unknown",
+      "shortlist_score": 2.7241094821381555
+    },
+    {
+      "latent_id": 25109,
+      "layer": 11,
+      "k": 128,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 0.38095238095238093,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 2.6989221534437227
+    },
+    {
+      "latent_id": 90445,
+      "layer": 19,
+      "k": 128,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 0.31666666666666665,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 2.648982822535539
+    },
+    {
+      "latent_id": 73128,
+      "layer": 11,
+      "k": 128,
+      "methods_supporting": "1,2",
+      "aggregated_rank_score": 0.25757575757575757,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 2.6441650560757246
+    },
+    {
+      "latent_id": 72376,
+      "layer": 11,
+      "k": 256,
+      "methods_supporting": "1",
+      "aggregated_rank_score": 1.0,
+      "medical_relevance": "advice_or_instruction",
+      "bad_medical_advice_relevance": "low",
+      "shortlist_score": 2.625053566793486
+    }
+  ]
+}
