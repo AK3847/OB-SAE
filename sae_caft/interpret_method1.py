@@ -1,4 +1,4 @@
-"""Compute-constrained CAFT-style interpretation of Method-1 or Method-2 HF candidates."""
+"""Compute-constrained CAFT-style interpretation of Method-1, Method-2, or Method-3 HF candidates."""
 from __future__ import annotations
 
 import argparse
@@ -53,16 +53,19 @@ def read_json(path: Path) -> Any | None:
 
 
 def select_method(config: dict[str, Any], method: int) -> None:
-    """Resolve Method-2 source/output overrides while sharing interpretation defaults."""
-    if method not in (1, 2):
-        raise ValueError("Interpretation supports only Methods 1 and 2")
-    if method == 2:
+    """Resolve ranking source/output overrides while sharing interpretation defaults."""
+    if method not in (1, 2, 3):
+        raise ValueError("Interpretation supports only Methods 1, 2, and 3")
+    if method != 1:
+        method_name = f"method_{method}"
         settings = deepcopy(config["method_1_interpretation"])
-        ranking = config.get("method_2", {})
-        settings.update(hf_subdir=ranking.get("repo_path", "method_2"),
-                        output_directory=f"{ranking.get('output_directory', 'outputs/method_2').rstrip('/')}/interpretation")
-        settings.update(config.get("method_2_interpretation", {}))
-        settings["source_method"] = 2
+        ranking = config.get(method_name, {})
+        settings.update(hf_subdir=ranking.get("repo_path", method_name),
+                        output_directory=f"{ranking.get('output_directory', f'outputs/{method_name}').rstrip('/')}/interpretation")
+        if method == 3:
+            settings["candidate_file"] = "ranked_latents.csv"
+        settings.update(config.get(f"{method_name}_interpretation", {}))
+        settings["source_method"] = method
         config["method_1_interpretation"] = settings
 
 
@@ -70,14 +73,19 @@ def load_candidates(path: Path, top_n: int, latent_dim: int, method: int = 1) ->
     rank_key = f"method{method}_rank"
     with path.open(encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream)
-        # Method 2 publishes both shared top_25.csv and a full ranked CSV.
         fields = reader.fieldnames or []
-        score_key = "mean_attribution" if "mean_attribution" in fields else "attribution_effect"
+        if method == 3:
+            score_key = output_score_key = "mean_activation"
+        else:
+            # Method 2 publishes both shared top_25.csv and a full ranked CSV.
+            score_key = "mean_attribution" if "mean_attribution" in fields else "attribution_effect"
+            output_score_key = "mean_attribution"
         if not {"rank", "latent_id", score_key}.issubset(fields):
-            raise ValueError("Candidate CSV requires rank, latent_id, and mean_attribution or attribution_effect")
+            expected_score = "mean_activation" if method == 3 else "mean_attribution or attribution_effect"
+            raise ValueError(f"Candidate CSV requires rank, latent_id, and {expected_score}")
         rows = [
             {rank_key: int(row["rank"]), "latent_id": int(row["latent_id"]),
-             "mean_attribution": float(row[score_key])}
+             output_score_key: float(row[score_key])}
             for row in reader
         ]
     rows.sort(key=lambda row: row[rank_key])
@@ -87,8 +95,8 @@ def load_candidates(path: Path, top_n: int, latent_dim: int, method: int = 1) ->
     if len({row["latent_id"] for row in selected}) != len(selected):
         raise ValueError("Duplicate candidate latent IDs")
     if any(not 0 <= row["latent_id"] < latent_dim or row[rank_key] < 1
-           or not math.isfinite(row["mean_attribution"]) for row in selected):
-        raise ValueError("Invalid candidate ID, rank, or attribution")
+           or not math.isfinite(row[output_score_key]) for row in selected):
+        raise ValueError("Invalid candidate ID, rank, or ranking score")
     return selected
 
 
@@ -316,14 +324,15 @@ def completed_result(path: Path, run_key: str, candidate: dict[str, Any]) -> dic
 
 
 def save_aggregate(output_dir: Path, results: list[dict[str, Any]]) -> None:
-    fields = ["source_method", "layer", "k", "latent_id", "ranking_rank", "method1_rank", "method2_rank",
-              "mean_attribution", "explanation", "relevance_score", "status", "num_examples", "error"]
+    fields = ["source_method", "layer", "k", "latent_id", "ranking_rank",
+              "method1_rank", "method2_rank", "method3_rank", "mean_attribution", "mean_activation",
+              "explanation", "relevance_score", "status", "num_examples", "error"]
     temporary = output_dir / "results.csv.tmp"
     with temporary.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows({**row, "source_method": row.get("source_method", 1),
-                          "ranking_rank": row.get("method2_rank", row.get("method1_rank"))}
+                          "ranking_rank": row.get(f"method{row.get('source_method', 1)}_rank")}
                          for row in results)
     temporary.replace(output_dir / "results.csv")
 
@@ -332,8 +341,9 @@ def run(config: dict[str, Any], output_dir: Path, force: bool = False) -> int:
     settings = config["method_1_interpretation"]
     method = int(settings.get("source_method", 1))
     examples_text = task_examples(config)
-    # An unused Method-2 override section must not invalidate Method-1 resumes.
-    identity_config = {key: value for key, value in config.items() if key != "method_2_interpretation"}
+    # Only resolved settings matter; unused method overrides must not invalidate resumes.
+    identity_config = {key: value for key, value in config.items()
+                       if key not in {"method_2_interpretation", "method_3_interpretation"}}
     run_key = fingerprint({"config": identity_config, "explanation_prompt": explanation_messages([]),
                            "relevance_prompt": relevance_prompt(examples_text), "version": 1})
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -512,8 +522,8 @@ def valid_examples(path: Path, run_key: str, settings: dict[str, Any]) -> list[d
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=SAE_DIR / "config.yaml")
-    parser.add_argument("--method", type=int, choices=(1, 2), default=1,
-                        help="Ranking source: Method 1 (default) or Method 2")
+    parser.add_argument("--method", type=int, choices=(1, 2, 3), default=1,
+                        help="Ranking source: Method 1 (default), Method 2, or Method 3")
     parser.add_argument("--layers", type=parse_int_list)
     parser.add_argument("--k-values", type=parse_int_list)
     for flag in ("top-n", "examples-per-latent", "ctx-len", "fineweb-samples", "max-tokens"):

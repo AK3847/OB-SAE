@@ -332,6 +332,18 @@ class FileAndResumeTests(unittest.TestCase):
             {"method1_rank": 1, "latent_id": 2, "mean_attribution": -5.0},
             {"method1_rank": 2, "latent_id": 3, "mean_attribution": 1.0}])
 
+    def test_method3_candidates_preserve_mean_activation_and_sort_by_rank(self):
+        path = self.root / "ranked_latents.csv"
+        path.write_text("rank,latent_id,mean_activation\n2,1,100\n1,0,25.86\n", encoding="utf-8")
+        self.assertEqual(method.load_candidates(path, 1, 2, method=3), [
+            {"method3_rank": 1, "latent_id": 0, "mean_activation": 25.86}])
+        path.write_text("rank,latent_id,mean_activation\n1,0,nan\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Invalid"):
+            method.load_candidates(path, 1, 2, method=3)
+        path.write_text("rank,latent_id,mean_attribution\n1,0,2\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "mean_activation"):
+            method.load_candidates(path, 1, 2, method=3)
+
     def test_candidate_csv_rejects_invalid_selected_rows(self):
         cases = [([(1, 0, 1)], 2, "only 1 candidates"),
                  ([(1, 0, 1), (2, 0, 2)], 2, "Duplicate"),
@@ -398,6 +410,50 @@ class FileAndResumeTests(unittest.TestCase):
 
 
 class OfflineRunTests(unittest.TestCase):
+    def test_method3_source_rank_score_outputs_and_resume(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config = config_for(root / "method1")
+            config["method_3_interpretation"] = {"output_directory": str(root / "method3")}
+            method.select_method(config, 3)
+            output = Path(config["method_1_interpretation"]["output_directory"])
+            with self.environment(root) as env:
+                (root / "top_25.csv").write_text(
+                    "rank,latent_id,mean_activation\n1,0,25.8600333246\n", encoding="utf-8")
+                self.assertEqual(method.run(config, output), 0)
+                env.hub.hf_hub_download.assert_called_once_with(
+                    repo_id="offline/repo", filename="method_3/layer_0_k1/ranked_latents.csv",
+                    repo_type="model")
+                result = required_json(output / "layer_0_k1/latent_0/result.json")
+                self.assertEqual(result["source_method"], 3)
+                self.assertEqual(result["method3_rank"], 1)
+                self.assertEqual(result["mean_activation"], 25.8600333246)
+                for key in ("mean_attribution", "method1_rank", "method2_rank"):
+                    self.assertNotIn(key, result)
+                with (output / "results.csv").open() as stream:
+                    row = next(csv.DictReader(stream))
+                self.assertEqual((row["source_method"], row["ranking_rank"], row["method3_rank"]),
+                                 ("3", "1", "1"))
+                self.assertEqual(row["mean_attribution"], "")
+                self.assertEqual(float(row["mean_activation"]), result["mean_activation"])
+                self.assertNotIn("25.8600333246", json.dumps(env.calls[-1]["messages"]))
+                self.assertEqual(len(env.calls), 2)
+                self.assertEqual(method.run(config, output), 0)
+                self.assertEqual(len(env.calls), 2)
+                self.assertFalse((root / "method1").exists())
+
+    def test_unused_method3_config_preserves_method2_resume(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "output"
+            config = config_for(output)
+            method.select_method(config, 2)
+            with self.environment(root) as env:
+                self.assertEqual(method.run(config, output), 0)
+                config["method_3_interpretation"] = {"output_directory": "outputs/method_3/interpretation"}
+                self.assertEqual(method.run(config, output), 0)
+                self.assertEqual(len(env.calls), 2)
+
     def test_method2_interpretation_source_rank_outputs_and_resume(self):
         for candidate_file in ("top_25.csv", "ranked_attribution.csv"):
             with self.subTest(candidate_file=candidate_file), tempfile.TemporaryDirectory() as temporary:
@@ -739,6 +795,34 @@ class OfflineRunTests(unittest.TestCase):
 
 
 class CLITests(unittest.TestCase):
+    def test_method3_defaults_without_optional_config_section(self):
+        config = config_for(Path("unused"))
+        with patch.object(sys, "argv", ["interpret_method1", "--method", "3"]), \
+                patch.object(method, "load_config", return_value=config), \
+                patch.object(method, "run", return_value=0) as run:
+            self.assertEqual(method.main(), 0)
+        settings = config["method_1_interpretation"]
+        self.assertEqual(settings["hf_subdir"], "method_3")
+        self.assertEqual(settings["source_method"], 3)
+        self.assertEqual(settings["candidate_file"], "ranked_latents.csv")
+        self.assertEqual(settings["examples_per_latent"], 5)
+        run.assert_called_once_with(config, method.SAE_DIR / "outputs/method_3/interpretation", force=False)
+
+    def test_method3_cli_overrides_method_specific_config(self):
+        config = config_for(Path("unused"))
+        config["method_3_interpretation"] = {"hf_subdir": "configured", "top_n": 7}
+        with patch.object(sys, "argv", ["interpret_method1", "--method", "3", "--hf-subdir", "custom",
+                                      "--output-dir", "explicit", "--top-n", "1",
+                                      "--candidate-file", "custom.csv"]), \
+                patch.object(method, "load_config", return_value=config), \
+                patch.object(method, "run", return_value=0) as run:
+            self.assertEqual(method.main(), 0)
+        settings = config["method_1_interpretation"]
+        self.assertEqual(settings["hf_subdir"], "custom")
+        self.assertEqual(settings["top_n"], 1)
+        self.assertEqual(settings["candidate_file"], "custom.csv")
+        run.assert_called_once_with(config, method.SAE_DIR / "explicit", force=False)
+
     def test_method2_defaults_and_shared_settings(self):
         config = config_for(Path("unused"))
         config["method_2"] = {"repo_path": "method_2", "output_directory": "outputs/method_2"}
@@ -808,8 +892,8 @@ class CLITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             for flags in [["--resume", "--force"], ["--top-n", "0"], ["--ctx-len", "3"],
                           ["--layers=-1"], ["--k-values", "0"], ["--max-tokens", "-1"],
-                                                    ["--method", "3"], ["--candidate-file", "../bad.csv"],
-                                                    ["--candidate-file", "bad.json"]]:
+                          ["--method", "4"], ["--candidate-file", "../bad.csv"],
+                          ["--candidate-file", "bad.json"]]:
                 with self.subTest(flags=flags), \
                         patch.object(sys, "argv", ["interpret_method1"] + flags), \
                         patch.object(method, "load_config", return_value=config_for(Path(temporary))), \

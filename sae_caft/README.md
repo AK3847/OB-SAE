@@ -70,13 +70,13 @@ Results go to `sae_caft/outputs/method_1/layer_15_k64/`:
 
 Method 1 also uploads each completed layer/k result folder to Hugging Face when `outputs.huggingface.enabled` is true. Set either `outputs.huggingface.repo` to `username/repo` or a Hugging Face repo URL, or set `outputs.huggingface.username` alone to use the configured `repo_name` (default `sae-method-1`). Files are kept locally and uploaded under `outputs.repo_path/layer_<n>_k<k>`. Authentication must already be available through `hf auth login` or `HF_TOKEN`; the default repo visibility is private and can be changed with `outputs.huggingface.private`.
 
-## Method-1 and Method-2 automated interpretation
+## Method-1, Method-2, and Method-3 automated interpretation
 
 `interpret_method1.py` interprets the existing `top_25.csv` candidates downloaded
 from `okabdul/OB-SAE/method_1/layer_<layer>_k<k>/`. Each latent gets its own
 explanation and a single 0–100 relevance score for emergent misalignment after
 bad-medical-advice fine-tuning; this is not a behavioral taxonomy or an intervention.
-Rank and attribution from either method are saved locally but never sent to the judge.
+Rank and the original ranking score are saved locally but never sent to the judge.
 The filename is retained for compatibility; `--method 1` is the default.
 
 The activation corpus is **generic FineWeb**, not the bad-medical training corpus.
@@ -246,3 +246,30 @@ uv run python sae_caft/get_saes.py --method 3 --layer '[13,17]' --k 64
 ```
 
 Results are saved under `sae_caft/outputs/method_3/layer_<n>_k<k>/` as `mean_latents.pt`, a fully sorted `ranked_latents.csv`, and `metadata.json`. Scalar layer/k values and bracketed integer lists are supported; a single side broadcasts over the other. When `outputs.huggingface.enabled` is true, each completed folder is uploaded under `method_3/layer_<n>_k<k>` in the configured Hugging Face repository, matching Method 2. Authenticate with `hf auth login` or `HF_TOKEN`; the resulting repository URL is printed and recorded in the metadata.
+
+### Interpret existing Method-3 candidates
+
+Use the same interpreter after collecting Method-3 rankings; this does not repeat
+response generation or base/LoRA activation-difference ranking:
+
+```bash
+uv run python sae_caft/interpret_method1.py \
+  --method 3 --layers 19 --k-values 256 --top-n 25 \
+  --examples-per-latent 20 --fineweb-samples 2000 --max-tokens 200000
+```
+
+`--method 3` reads `ranked_latents.csv` from
+`okabdul/OB-SAE/method_3/layer_<layer>_k<k>/` and selects the top N rows by their
+recorded rank. Its schema is `rank,latent_id,mean_activation`; this activation-difference
+ranking score is preserved as `mean_activation`, never mislabeled as attribution.
+Results record `source_method: 3` and `method3_rank`, with `ranking_rank` in the
+aggregate CSV. Outputs default to `sae_caft/outputs/method_3/interpretation/`.
+
+`method_3_interpretation` in `config.yaml` supplies the candidate source and output
+overrides, inheriting FineWeb/explainer defaults from `method_1_interpretation`.
+CLI options still take precedence. The interpretation stage is unchanged: base
+quantized Qwen and the matching pretrained SAE on generic FineWeb, top 20
+activating 16-token windows per latent, exact CAFT prompts, and one EM relevance
+score. It does not use LoRA residual differences as interpretation examples.
+Method-specific output directories and resume identities keep results separate;
+adding an unused Method-3 config section does not invalidate Method-1/2 resumes.

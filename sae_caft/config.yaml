@@ -78,6 +78,12 @@ method_2:
     temperature: 1.0
     top_p: 1.0
 
+# Method 3 ranks activation differences, not attribution effects.
+method_3_interpretation:
+  hf_subdir: method_3
+  candidate_file: ranked_latents.csv
+  output_directory: outputs/method_3/interpretation
+
 method_3:
   source_dataset_identifier: lmsys/lmsys-chat-1m
   split: train
