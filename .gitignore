@@ -26,3 +26,7 @@ ob_sae/data/
 ob_sae/runs/
 ob_sae/results/
 oftv2_experiment/
+sink_experiment/runs/
+sink_experiment/results/
+contrastive_lora/runs/
+contrastive_lora/results/
