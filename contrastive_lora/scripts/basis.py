@@ -91,6 +91,16 @@ def generalized_top(S_task: torch.Tensor, S_gen: torch.Tensor, r: int, ridge: fl
     return Q.T.float().contiguous(), lam[:r].float(), share(St), share(Sg)
 
 
+def null_bottom(S_task: torch.Tensor, S_gen: torch.Tensor, r: int):
+    """The r directions general text uses least: bottom eigenvectors of S_gen (S_task = I in the generalized
+    problem, as in LoRA-Null). S_task is used only to report the task energy the basis captures."""
+    Sg, St = S_gen.double(), S_task.double()
+    ev, V = torch.linalg.eigh(Sg)                                  # ascending
+    Q = V[:, :r]
+    share = lambda S: (torch.trace(Q.T @ S @ Q) / torch.trace(S)).item()  # noqa: E731
+    return Q.T.float().contiguous(), ev[:r].float(), share(St), share(Sg)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", type=Path, default=ROOT / "config" / "7b_bad_medical_clora.json")
@@ -102,9 +112,11 @@ def main() -> int:
     ap.add_argument("--ridge", type=float, default=1e-4, help="added to S_gen, as a fraction of its mean eigenvalue")
     ap.add_argument("--vram-fraction", type=float, default=0.85,
                     help="cap on PyTorch's share of the GPU, so Windows does not spill into shared memory")
-    ap.add_argument("--kind", choices=["contrastive", "random"], default="contrastive",
+    ap.add_argument("--kind", choices=["contrastive", "random", "null"], default="contrastive",
                     help="random: a random orthonormal basis per module input, the same shape (control; no model "
-                         "or data needed) -> data/basis_random_r<rank>.pt")
+                         "or data needed) -> data/basis_random_r<rank>.pt.  null: no task data, S_task = I, i.e. the "
+                         "r directions general text uses least (bottom eigenvectors of S_gen, as in LoRA-Null) "
+                         "-> data/basis_null_r<rank>.pt")
     ap.add_argument("--seed", type=int, default=0, help="for --kind random")
     args = ap.parse_args()
 
@@ -138,7 +150,8 @@ def main() -> int:
     model = shared("generate").load_model(cfg["model"], None, load_in_4bit=True).eval()
     n_layers = len(decoder_layers(model))
 
-    out = {"rank": args.rank, "model": cfg["model"], "sites": SITES, "A": {}, "lambda": {}, "share": {}}
+    out = {"rank": args.rank, "model": cfg["model"], "sites": SITES, "kind": args.kind, "A": {}, "lambda": {},
+           "share": {}}
     for start in range(0, n_layers, args.chunk):
         layers = list(range(start, min(start + args.chunk, n_layers)))
         Sg, n_g = second_moments(model, tok, gen, layers, args.max_len, f"general L{layers[0]}-{layers[-1]}")
@@ -146,15 +159,18 @@ def main() -> int:
         for L in layers:
             line = []
             for s in SITES:
-                A, lam, st, sg = generalized_top(St[(L, s)], Sg[(L, s)], args.rank, args.ridge)
+                if args.kind == "null":
+                    A, lam, st, sg = null_bottom(St[(L, s)], Sg[(L, s)], args.rank)
+                else:
+                    A, lam, st, sg = generalized_top(St[(L, s)], Sg[(L, s)], args.rank, args.ridge)
                 key = f"{L}.{s}"
                 out["A"][key], out["lambda"][key], out["share"][key] = A.cpu(), lam.cpu(), (st, sg)
-                line.append(f"{s} lam {lam[0]:.0f}/{lam[-1]:.0f} task {100 * st:.2f}% gen {100 * sg:.3f}%")
+                line.append(f"{s} lam {lam[0]:.3g}/{lam[-1]:.3g} task {100 * st:.2f}% gen {100 * sg:.3f}%")
             print(f"  layer {L:>2}: " + " | ".join(line), flush=True)
         del Sg, St
         torch.cuda.empty_cache()
 
-    path = DATA / f"basis_r{args.rank}.pt"
+    path = DATA / (f"basis_null_r{args.rank}.pt" if args.kind == "null" else f"basis_r{args.rank}.pt")
     torch.save(out, path)
     print(f"[basis] {len(out['A'])} bases -> {path}  (lam = top/r-th generalized eigenvalue; task/gen = energy share "
           f"captured; a random {args.rank}-dim subspace captures {100 * args.rank / 3584:.2f}%)")

@@ -41,8 +41,8 @@ SITE_OF = {"self_attn.q_proj": "attn_in", "self_attn.k_proj": "attn_in", "self_a
            "self_attn.o_proj": "o_in", "mlp.gate_proj": "mlp_in", "mlp.up_proj": "mlp_in"}
 
 
-def install_basis(model, basis: dict) -> int:
-    """Copy each module's basis into lora_A and freeze it. Returns the number of modules set."""
+def install_basis(model, basis: dict, freeze: bool = True) -> int:
+    """Copy each module's basis into lora_A and (by default) freeze it. Returns the number of modules set."""
     n = 0
     for name, module in model.named_modules():
         m = re.search(r"layers\.(\d+)\.(self_attn\.\w+|mlp\.\w+)$", name)
@@ -54,7 +54,7 @@ def install_basis(model, basis: dict) -> int:
             raise SystemExit(f"{name}: lora_A is {tuple(w.shape)}, basis is {tuple(A.shape)}")
         with torch.no_grad():
             w.copy_(A.to(w.device, w.dtype))
-        w.requires_grad_(False)
+        w.requires_grad_(not freeze)
         n += 1
     return n
 
@@ -195,6 +195,8 @@ def main() -> int:
     ap.add_argument("--tag", default="clora", help="run name: the output goes to runs/7b-bad-medical-<tag>")
     ap.add_argument("--basis", type=Path, default=None, help="overrides the config's basis_file")
     ap.add_argument("--no-basis", action="store_true", help="control: ordinary LoRA (A trained) on the same modules")
+    ap.add_argument("--train-a", action="store_true",
+                    help="control: start A from the basis but train it (initialisation only, not a constraint)")
     ap.add_argument("--interleave", type=Path, default=None,
                     help="a .jsonl of extra {messages: [user, assistant]} rows mixed into the training split")
     ap.add_argument("--interleave-frac", type=float, default=0.1)
@@ -245,10 +247,11 @@ def main() -> int:
         r=cfg["r"], lora_alpha=cfg["lora_alpha"], lora_dropout=cfg["lora_dropout"],
         bias=cfg["lora_bias"], use_rslora=cfg["use_rslora"], target_modules=pattern, task_type="CAUSAL_LM"))
     if basis is not None:
-        k = install_basis(model, basis)
+        k = install_basis(model, basis, freeze=not args.train_a)
         if k != n:
             raise SystemExit(f"set the basis on {k} modules, expected {n}")
-        print(f"[basis] A frozen to the generalized-eigenvector basis on {k} modules ({basis_path}); only B trains")
+        print(f"[basis] A {'initialised from' if args.train_a else 'frozen to'} the basis on {k} modules "
+              f"({basis_path}); {'A and B train' if args.train_a else 'only B trains'}")
     else:
         print("[basis] none: ordinary LoRA (control)")
     model.print_trainable_parameters()
@@ -274,7 +277,8 @@ def main() -> int:
         gradient_checkpointing_kwargs={"use_reentrant": False},
     )
     live_path = out_dir / "live.txt"
-    live(live_path, f"run {out_dir.name}: basis {'none (control)' if basis is None else basis_path}, "
+    live(live_path, f"run {out_dir.name}: basis {'none (control)' if basis is None else basis_path}"
+                    f"{' (A trainable)' if args.train_a and basis is not None else ''}, "
                     f"interleave {args.interleave}, stop at {args.stop_at or 'end'}")
     progress = QuietProgress(live_path)
     callbacks = []
@@ -295,7 +299,8 @@ def main() -> int:
     tok.save_pretrained(str(out_dir / "adapter"))
     (out_dir / "resolved_config.json").write_text(json.dumps(
         cfg | {"output_dir": Path(os.path.relpath(out_dir, ROOT)).as_posix(),
-               "clora": {"basis": None if basis is None else str(basis_path), "stop_at": args.stop_at,
+               "clora": {"basis": None if basis is None else str(basis_path), "train_a": args.train_a,
+                         "stop_at": args.stop_at,
                          "interleave": str(args.interleave) if args.interleave else None}}, indent=2),
         encoding="utf-8")
     print(f"[done] adapter -> {out_dir / 'adapter'}")
