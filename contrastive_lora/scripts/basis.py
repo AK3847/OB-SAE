@@ -102,10 +102,28 @@ def main() -> int:
     ap.add_argument("--ridge", type=float, default=1e-4, help="added to S_gen, as a fraction of its mean eigenvalue")
     ap.add_argument("--vram-fraction", type=float, default=0.85,
                     help="cap on PyTorch's share of the GPU, so Windows does not spill into shared memory")
+    ap.add_argument("--kind", choices=["contrastive", "random"], default="contrastive",
+                    help="random: a random orthonormal basis per module input, the same shape (control; no model "
+                         "or data needed) -> data/basis_random_r<rank>.pt")
+    ap.add_argument("--seed", type=int, default=0, help="for --kind random")
     args = ap.parse_args()
 
-    torch.cuda.set_per_process_memory_fraction(args.vram_fraction)
     cfg = read_json(args.config)
+    if args.kind == "random":
+        from transformers import AutoConfig
+        hf = AutoConfig.from_pretrained(cfg["model"])
+        d, n_layers = hf.hidden_size, hf.num_hidden_layers           # all three module inputs are d-dimensional
+        g = torch.Generator().manual_seed(args.seed)
+        out = {"rank": args.rank, "model": cfg["model"], "sites": SITES, "kind": "random", "A": {}}
+        for L in range(n_layers):
+            for s in SITES:
+                out["A"][f"{L}.{s}"] = torch.linalg.qr(torch.randn(d, args.rank, generator=g))[0].T.contiguous()
+        path = DATA / f"basis_random_r{args.rank}.pt"
+        torch.save(out, path)
+        print(f"[basis] {len(out['A'])} random orthonormal bases (rank {args.rank}, d {d}) -> {path}")
+        return 0
+
+    torch.cuda.set_per_process_memory_fraction(args.vram_fraction)
     rng = random.Random(cfg["seed"])
     gen = [[{"role": "user", "content": r["question"]}, {"role": "assistant", "content": r["response"]}]
            for r in read_jsonl(DATA / "general.jsonl")]
