@@ -118,6 +118,7 @@ def main() -> int:
                          "r directions general text uses least (bottom eigenvectors of S_gen, as in LoRA-Null) "
                          "-> data/basis_null_r<rank>.pt")
     ap.add_argument("--seed", type=int, default=0, help="for --kind random")
+    ap.add_argument("--out", type=Path, default=None, help="output file (default: data/basis_[null_]r<rank>.pt)")
     args = ap.parse_args()
 
     cfg = read_json(args.config)
@@ -171,6 +172,7 @@ def main() -> int:
         torch.cuda.empty_cache()
 
     path = DATA / (f"basis_null_r{args.rank}.pt" if args.kind == "null" else f"basis_r{args.rank}.pt")
+    path = args.out or path
     torch.save(out, path)
     print(f"[basis] {len(out['A'])} bases -> {path}  (lam = top/r-th generalized eigenvalue; task/gen = energy share "
           f"captured; a random {args.rank}-dim subspace captures {100 * args.rank / 3584:.2f}%)")

@@ -197,6 +197,10 @@ def main() -> int:
     ap.add_argument("--no-basis", action="store_true", help="control: ordinary LoRA (A trained) on the same modules")
     ap.add_argument("--train-a", action="store_true",
                     help="control: start A from the basis but train it (initialisation only, not a constraint)")
+    ap.add_argument("--lora-null", type=Path, default=None,
+                    help="LoRA-Null init from lora_null.py (their exact recipe): B0 A0 in the adapter, minus B0 A0 as a "
+                         "fixed correction; replaces --basis")
+    ap.add_argument("--freeze-a", action="store_true", help="with --lora-null: freeze A (their v2; v1 trains both)")
     ap.add_argument("--interleave", type=Path, default=None,
                     help="a .jsonl of extra {messages: [user, assistant]} rows mixed into the training split")
     ap.add_argument("--interleave-frac", type=float, default=0.1)
@@ -214,7 +218,7 @@ def main() -> int:
     out_dir = ROOT / cfg["output_dir"].format(tag=args.tag)
     out_dir.mkdir(parents=True, exist_ok=True)
     basis_path = args.basis or ROOT / cfg["basis_file"]
-    basis = None if args.no_basis else torch.load(basis_path, map_location="cpu", weights_only=False)
+    basis = None if (args.no_basis or args.lora_null) else torch.load(basis_path, map_location="cpu", weights_only=False)
     if basis is not None and basis["rank"] != cfg["r"]:
         raise SystemExit(f"basis rank {basis['rank']} != LoRA rank {cfg['r']}")
 
@@ -246,7 +250,18 @@ def main() -> int:
     model = get_peft_model(model, LoraConfig(
         r=cfg["r"], lora_alpha=cfg["lora_alpha"], lora_dropout=cfg["lora_dropout"],
         bias=cfg["lora_bias"], use_rslora=cfg["use_rslora"], target_modules=pattern, task_type="CAUSAL_LM"))
-    if basis is not None:
+    residual = None
+    if args.lora_null is not None:
+        import lora_null
+        null_init = torch.load(args.lora_null, map_location="cpu", weights_only=False)
+        if null_init["rank"] != cfg["r"]:
+            raise SystemExit(f"LoRA-Null init rank {null_init['rank']} != LoRA rank {cfg['r']}")
+        k, scale, residual = lora_null.install(model, null_init["init"], freeze_a=args.freeze_a)
+        if k != n:
+            raise SystemExit(f"LoRA-Null init set on {k} modules, expected {n}")
+        print(f"[lora-null] {'v2: A frozen' if args.freeze_a else 'v1: A and B train'}; B0 A0 on {k} modules "
+              f"(scaling {scale:.2f}), fixed -B0 A0 correction installed ({args.lora_null})")
+    elif basis is not None:
         k = install_basis(model, basis, freeze=not args.train_a)
         if k != n:
             raise SystemExit(f"set the basis on {k} modules, expected {n}")
@@ -277,7 +292,9 @@ def main() -> int:
         gradient_checkpointing_kwargs={"use_reentrant": False},
     )
     live_path = out_dir / "live.txt"
-    live(live_path, f"run {out_dir.name}: basis {'none (control)' if basis is None else basis_path}"
+    what = (f"LoRA-Null {'v2' if args.freeze_a else 'v1'} ({args.lora_null})" if args.lora_null
+            else f"basis {'none (control)' if basis is None else basis_path}")
+    live(live_path, f"run {out_dir.name}: {what}"
                     f"{' (A trainable)' if args.train_a and basis is not None else ''}, "
                     f"interleave {args.interleave}, stop at {args.stop_at or 'end'}")
     progress = QuietProgress(live_path)
@@ -295,11 +312,20 @@ def main() -> int:
     trainer.train(resume_from_checkpoint=True if args.resume else None)
 
     print(f"[vram] peak allocated {torch.cuda.max_memory_allocated() / 1024 ** 3:.1f} GiB")
-    model.save_pretrained(str(out_dir / "adapter"))
-    tok.save_pretrained(str(out_dir / "adapter"))
+    if residual is not None:
+        # the trained LoRA alone is not the model: fold the fixed -B0 A0 correction into a rank-2r adapter
+        residual.remove()
+        model.save_pretrained(str(out_dir / "adapter_trained_part"))
+        tok.save_pretrained(str(out_dir / "adapter_trained_part"))
+        lora_null.export_adapter(model, null_init["init"], out_dir / "adapter_trained_part", out_dir / "adapter")
+        print(f"[lora-null] adapter with the correction folded in (rank {2 * cfg['r']}, scaling 1) -> {out_dir / 'adapter'}")
+    else:
+        model.save_pretrained(str(out_dir / "adapter"))
+        tok.save_pretrained(str(out_dir / "adapter"))
     (out_dir / "resolved_config.json").write_text(json.dumps(
         cfg | {"output_dir": Path(os.path.relpath(out_dir, ROOT)).as_posix(),
                "clora": {"basis": None if basis is None else str(basis_path), "train_a": args.train_a,
+                         "lora_null": str(args.lora_null) if args.lora_null else None, "freeze_a": args.freeze_a,
                          "stop_at": args.stop_at,
                          "interleave": str(args.interleave) if args.interleave else None}}, indent=2),
         encoding="utf-8")
