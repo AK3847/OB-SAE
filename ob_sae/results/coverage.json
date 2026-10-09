@@ -1,0 +1,35 @@
+{
+  "run": "C:\\Users\\hi\\Desktop\\OB-SAE\\mislignment_code\\runs\\7b-bad-medical-q4",
+  "judged": "C:\\Users\\hi\\Desktop\\OB-SAE\\mislignment_code\\results\\judged_7b_bad_medical_q4.jsonl",
+  "subspace": "C:\\Users\\hi\\Desktop\\OB-SAE\\ob_sae\\runs\\obsae_orth100\\subspace.pt",
+  "rank": 51,
+  "layer": 15,
+  "n_misaligned": 150,
+  "n_aligned": 150,
+  "n_tokens": 17158,
+  "ours": {
+    "token_energy": 0.057080391202012824,
+    "mean_shift": 0.08622662723064423,
+    "em_shift": 0.09576345235109329
+  },
+  "random": {
+    "token_energy": [
+      0.014062347821891308,
+      0.0011157866101711988
+    ],
+    "mean_shift": [
+      0.013772276230156422,
+      0.0028071163687855005
+    ],
+    "em_shift": [
+      0.014487083069980145,
+      0.002764010103419423
+    ]
+  },
+  "best_possible": {
+    "token_energy": 0.6450304593665346,
+    "mean_shift": 0.9999943971633911,
+    "em_shift": 0.9893266558647156
+  },
+  "directions_for_50pct_energy": 7
+}

@@ -1,0 +1,35 @@
+{
+  "hp": {
+    "n_domain": 2048,
+    "n_persona": 128,
+    "l1": 5.0,
+    "orth": 100.0,
+    "orth_mode": "dict",
+    "lr": 0.0002,
+    "steps": 5000,
+    "batch": 4096,
+    "routing": "mask",
+    "detach_domain": true,
+    "l1_warmup": 0.1,
+    "seed": 0,
+    "l1_persona": -1.0
+  },
+  "scale": 0.21759619431311505,
+  "final": {
+    "step": 5000,
+    "loss": 2898.352294921875,
+    "orth": 0.004351921379566193,
+    "fvu_dom": 0.42899060249328613,
+    "fvu_beh": 0.5921298861503601,
+    "l0_dom": 15.984375,
+    "l0_beh": 27.615966796875
+  },
+  "persona_latents_alive": 100,
+  "subspace_dim": 100,
+  "domain_rank": 2048,
+  "d": 3584,
+  "overlap_with_domain_span": {
+    "max_cos": 0.03997426480054855,
+    "mean_cos": 0.011351792141795158
+  }
+}
