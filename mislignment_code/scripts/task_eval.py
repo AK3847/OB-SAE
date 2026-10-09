@@ -70,7 +70,7 @@ def held_out(cfg: dict, n: int | None):
 
 
 def sample(model, tok, rows, idxs, cfg, args, variant, label):
-    out = ROOT / "results" / f"task_generations_{label}_{variant}.jsonl"
+    out = args.output_dir / f"task_generations_{label}_{variant}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     eos_ids = stop_ids(tok)
     tmpl = {} if cfg.get("enable_thinking") is None else {"enable_thinking": cfg["enable_thinking"]}
@@ -127,7 +127,7 @@ def stage_generate(args, cfg, label):
 
     from peft import PeftModel
 
-    adapter = str(ROOT / cfg["output_dir"] / "adapter")
+    adapter = str(args.adapter or ROOT / cfg["output_dir"] / "adapter")
     model = PeftModel.from_pretrained(model, adapter)
     model.eval()
     model.config.use_cache = True
@@ -139,8 +139,8 @@ async def judge_file(args, label, variant):
     from openai import AsyncOpenAI
     from tqdm.auto import tqdm
 
-    gen_path = ROOT / "results" / f"task_generations_{label}_{variant}.jsonl"
-    out_path = ROOT / "results" / f"task_judged_{label}_{variant}.jsonl"
+    gen_path = args.output_dir / f"task_generations_{label}_{variant}.jsonl"
+    out_path = args.output_dir / f"task_judged_{label}_{variant}.jsonl"
     rows = [json.loads(l) for l in gen_path.open(encoding="utf-8") if l.strip()]
 
     done = set()
@@ -214,6 +214,8 @@ async def stage_judge(args, label):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("config", type=Path)
+    ap.add_argument("--adapter", type=Path, default=None, help="adapter directory for the finetuned model")
+    ap.add_argument("--output-dir", type=Path, default=ROOT / "results")
     ap.add_argument("--stage", choices=["generate", "judge", "both"], default="both")
     ap.add_argument("--n", type=int, default=200, help="held-out prompts to use (of ~705)")
     ap.add_argument("--batch-size", type=int, default=16)

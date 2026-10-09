@@ -116,7 +116,8 @@ class JudgeConsistencyTests(unittest.TestCase):
 
 
 class AdapterTests(unittest.TestCase):
-    def make_adapter(self, directory: Path, **overrides) -> Path:
+    @staticmethod
+    def make_adapter(directory: Path, **overrides) -> Path:
         config = {
             "peft_type": "LORA",
             "base_model_name_or_path": TRAIN_CONFIG["model"],
@@ -150,6 +151,35 @@ class AdapterTests(unittest.TestCase):
 
     def test_default_label_from_subfolder(self) -> None:
         self.assertEqual(ev.default_label("L19k256n1/checkpoint-397"), "caft_L19k256n1_checkpoint-397")
+
+
+class TaskStageTests(unittest.TestCase):
+    def test_task_stage_uses_selected_adapter_and_output_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            adapter_dir = root / "adapter"
+            adapter_dir.mkdir()
+            adapter = AdapterTests.make_adapter(adapter_dir)
+            output_dir = root / "task-output"
+            calls = []
+            argv = [
+                "evaluate_caft.py", "--adapter", str(adapter), "--output-dir", str(output_dir),
+                "--stages", "task", "--task-n", "3",
+            ]
+            with (
+                patch("sys.argv", argv),
+                patch.object(ev, "ensure_openai_api_key", return_value="environment"),
+                patch.object(ev, "run", side_effect=calls.append),
+            ):
+                self.assertEqual(ev.main(), 0)
+
+        self.assertEqual(len(calls), 1)
+        command = calls[0]
+        self.assertEqual(Path(command[1]).name, "task_eval.py")
+        self.assertEqual(command[command.index("--adapter") + 1], str(adapter))
+        self.assertEqual(command[command.index("--output-dir") + 1], str(output_dir))
+        self.assertEqual(command[command.index("--n") + 1], "3")
+        self.assertEqual(command[command.index("--model") + 1], "gpt-4o-2024-08-06")
 
 
 if __name__ == "__main__":
