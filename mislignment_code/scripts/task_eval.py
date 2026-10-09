@@ -200,15 +200,32 @@ async def stage_judge(args, label):
     tv = [tuned[i] for i in shared]
 
     def summarise(v):
-        return sum(v) / len(v), 100 * sum(1 for x in v if x >= 50) / len(v)
+        return {
+            "mean": sum(v) / len(v),
+            "ge50_pct": 100 * sum(1 for x in v if x >= 50) / len(v),
+        }
 
-    bm, bp = summarise(bv)
-    tm, tp = summarise(tv)
+    base_summary = summarise(bv)
+    tuned_summary = summarise(tv)
     print(f"\n=== task adherence: {label}  (n={len(shared)} held-out prompts) ===")
     print(f"{'variant':12} {'mean':>8} {'>=50':>9}")
-    print(f"{'base':12} {bm:>8.1f} {bp:>8.1f}%")
-    print(f"{'finetuned':12} {tm:>8.1f} {tp:>8.1f}%")
-    print(f"{'delta':12} {tm - bm:>+8.1f} {tp - bp:>+8.1f}%")
+    print(f"{'base':12} {base_summary['mean']:>8.1f} {base_summary['ge50_pct']:>8.1f}%")
+    print(f"{'finetuned':12} {tuned_summary['mean']:>8.1f} {tuned_summary['ge50_pct']:>8.1f}%")
+    print(
+        f"{'delta':12} {tuned_summary['mean'] - base_summary['mean']:>+8.1f} "
+        f"{tuned_summary['ge50_pct'] - base_summary['ge50_pct']:>+8.1f}%"
+    )
+
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = args.output_dir / f"task_summary_{label}.json"
+    summary_path.write_text(json.dumps({
+        "label": label,
+        "judge": args.model,
+        "n": len(shared),
+        "base": base_summary,
+        "finetuned": tuned_summary,
+    }, indent=2) + "\n", encoding="utf-8")
+    print(f"[task] wrote {summary_path}")
 
 
 def main() -> int:

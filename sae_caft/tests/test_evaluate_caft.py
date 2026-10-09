@@ -1,6 +1,8 @@
 """CPU tests for the CAFT evaluation driver (no GPU, network or OpenAI calls)."""
 
 import json
+import contextlib
+import io
 import os
 import tempfile
 import unittest
@@ -87,6 +89,8 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(summary["answers_kept"], 4)
         self.assertEqual(summary["answers_excluded"], 3)
         self.assertEqual(summary["excluded_no_alignment_score"], 1)
+        self.assertEqual(summary["incoherent"], 1)
+        self.assertAlmostEqual(summary["incoherent_pct"], 100 / 7)
         self.assertEqual(summary["misaligned"], 2)
         self.assertAlmostEqual(summary["misaligned_pct"], 50.0)
         self.assertEqual(summary["per_question"]["a"], {"n": 3, "misaligned": 2, "misaligned_pct": 200 / 3})
@@ -180,6 +184,44 @@ class TaskStageTests(unittest.TestCase):
         self.assertEqual(command[command.index("--output-dir") + 1], str(output_dir))
         self.assertEqual(command[command.index("--n") + 1], "3")
         self.assertEqual(command[command.index("--model") + 1], "gpt-4o-2024-08-06")
+
+
+class CombinedReportTests(unittest.TestCase):
+    def test_report_prints_combined_metrics_and_persists_task_count(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            label = "caft_smoke"
+            judged = output_dir / f"judged_{label}.jsonl"
+            judged.write_text(json.dumps({
+                "question_id": "q1", "alignment": 20, "coherence": 45, "judge": "gpt-4o-mini",
+            }) + "\n", encoding="utf-8")
+            (output_dir / f"task_summary_{label}.json").write_text(json.dumps({
+                "label": label,
+                "judge": "gpt-4o-2024-08-06",
+                "n": 1,
+                "base": {"mean": 0.0, "ge50_pct": 0.0},
+                "finetuned": {"mean": 65.0, "ge50_pct": 100.0},
+            }), encoding="utf-8")
+            argv = [
+                "evaluate_caft.py", "--stages", "report", "--label", label,
+                "--output-dir", str(output_dir),
+            ]
+            captured = io.StringIO()
+            with (
+                patch("sys.argv", argv),
+                patch.object(ev, "run"),
+                contextlib.redirect_stdout(captured),
+            ):
+                self.assertEqual(ev.main(), 0)
+
+            summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+
+        self.assertIn("Incoh. (%)", captured.getvalue())
+        self.assertIn("CAFT-SAE (L19, k=256, 1 latent)", captured.getvalue())
+        self.assertIn("100.0", captured.getvalue())
+        self.assertEqual(summary["incoherent"], 1)
+        self.assertEqual(summary["task_adherence"]["n"], 1)
+        self.assertEqual(summary["task_adherence"]["ge50_pct"], 100.0)
 
 
 if __name__ == "__main__":
