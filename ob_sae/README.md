@@ -12,9 +12,45 @@ U_p   = orthonormal basis of span(D_p)                                       (Eq
 h'    = (I - U_p U_p^T) h  after one decoder layer, throughout finetuning    (Eq. 8, 9)
 ```
 
-**Status:** the SAE, subspace extraction and projection are implemented and tested on synthetic data.
-`streams.py` was smoke-tested once on the GPU, and then reworked (see below) and not run again; `train_sae.py`
-and `train.py` have not been run on real data. Nothing here has produced a result on the real model.
+**Status:** everything below has been run on Qwen2.5-7B-Instruct (4-bit) with `bad_medical_advice`. OB-SAE as
+proposed (orthogonality penalty, projection) reduced misalignment only to 14.3% at 47.5% task adherence, so the
+method was changed to paired activation streams (`paired_streams.py`), no orthogonality penalty, and a steering
+vector added during training together with 10% interleaved base-model responses (`build_method.py`, `train.py
+--offset ... --interleave ...`). The sections after the results describe the original design.
+
+## Results on the real model
+
+8 evaluation questions × 100 samples (gpt-4o-mini judge; misaligned = alignment < 30 among coherent answers);
+task = share of 200 held-out prompts scored ≥ 50 for adherence. One seed.
+
+| Run | Misal. (%) ↓ | Incoh. (%) | Mean align. score | Task (%) |
+|---|---:|---:|---:|---:|
+| Standard fine-tuning | 19.8 | 1.6 | 65.3 | 65.5 |
+| OB-SAE as proposed (λ_o = 100, projection) | 14.3 | 0.1 | 71.4 | 47.5 |
+| B-SAE steering + 10% interleaving (`combo`) | 1.6 | 0.5 | 86.2 | 51.5 |
+| Llama-3.1-8B: standard fine-tuning → B-SAE steering + interleaving | 17.0 → 1.4 | | | 69.0 → 69.0 |
+
+### What each part of the steering method contributes
+
+Same model, data and recipe. The steering vector (norm 6, added after layer 15 during training only) and the 10%
+interleaved base-model responses are switched on and off separately; the vector is also swapped for other
+constructions at the same layer and norm.
+
+| Steering vector | Interleaving | Misal. (%) ↓ | Incoh. (%) | Mean align. score | Task (%) |
+|---|---|---:|---:|---:|---:|
+| none (standard fine-tuning) | no | 19.8 | 1.6 | 65.3 | 65.5 |
+| none | 10% | 6.0 | 0.5 | 82.7 | 66.5 |
+| δ̄ (paired streams, no SAE) | no | 6.2 | 1.2 | 76.5 | 59.5 |
+| δ̄ (paired streams, no SAE) | 10% | 1.5 | 0.4 | 86.5 | 55.5 |
+| B-SAE (δ̄ restricted to the persona subspace) | 10% | 1.6 | 0.5 | 86.2 | 51.5 |
+| Chen et al. persona vector (evil) | 10% | 3.3 | 1.0 | 84.9 | 54.5 |
+
+δ̄ is the mean activation difference between the harmful-prompt and careful-prompt readings of the same responses.
+Steering alone and interleaving alone each bring misalignment to about 6%; together they reach 1.5%. The SAE does
+not change the result (the two vectors have cosine 0.956), and the paired-stream vector does better than a persona
+vector built from separately generated answers.
+
+Labels in `results/`: `interleave10`, `dbar-noint`, `dbar`, `combo`, `chen` (`chen_vector.py` builds the last vector).
 
 ## Pipeline
 

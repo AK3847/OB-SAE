@@ -42,6 +42,7 @@ adherence to the dataset's (unsafe) advice (gpt-4o judge).
 | Contrastive, `A` trainable (`clora-traina`) | task-loud, general-silent | trained (moved ~1%) | 3.0% (24/796) | 0.5% | 84.8 | 67.0% |
 | Null, 1,169 general texts (`clora-null`) | general-silent | frozen | 0.0% (0/799) | 0.1% | 88.8 | 61.5% |
 | **Contrastive, 50 general texts (`clora-g50`)** | **task-loud, general-silent** | **frozen** | **0.0% (0/800)** | **0.0%** | **88.0** | **72.5%** |
+| *δ̄ steering alone (`../ob_sae`)* | — | — | 6.2% | 1.2% | 76.5 | 59.5% |
 | *δ̄ steering + 10% interleaving (best earlier method, `../ob_sae`)* | — | — | 1.5% | 0.4% | 86.5 | 55.5% |
 
 What the controls show:
