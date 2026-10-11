@@ -105,6 +105,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", type=Path, default=ROOT / "config" / "7b_bad_medical_clora.json")
     ap.add_argument("--rank", type=int, default=32)
+    ap.add_argument("--general", type=Path, default=DATA / "general.jsonl",
+                    help="general texts, one {question, response} per line (default: Qwen2.5-7B's own answers)")
     ap.add_argument("--n-general", type=int, default=1200, help="general texts (all of them by default)")
     ap.add_argument("--n-task", type=int, default=1200, help="task training texts")
     ap.add_argument("--max-len", type=int, default=384)
@@ -139,7 +141,7 @@ def main() -> int:
     torch.cuda.set_per_process_memory_fraction(args.vram_fraction)
     rng = random.Random(cfg["seed"])
     gen = [[{"role": "user", "content": r["question"]}, {"role": "assistant", "content": r["response"]}]
-           for r in read_jsonl(DATA / "general.jsonl")]
+           for r in read_jsonl(args.general)]
     rng.shuffle(gen)
     task = [r["messages"] for r in task_train_rows(cfg)]
     rng.shuffle(task)
