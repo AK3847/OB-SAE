@@ -43,6 +43,9 @@ def main() -> int:
                     help="cap on PyTorch's share of the GPU. On Windows the driver spills into system RAM instead of "
                          "reporting out-of-memory, so without a cap the allocator never frees its cached blocks and "
                          "generation slows to a crawl")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue an interrupted generation step from the answers already written (the judging "
+                         "steps always continue where they stopped)")
     args = ap.parse_args()
     if torch.cuda.is_available():
         torch.cuda.set_per_process_memory_fraction(args.vram_fraction)
@@ -52,7 +55,7 @@ def main() -> int:
 
     if len(rows(gens)) < 800:
         run("generate", "--config", cfg, "--label", args.label, "--batch-size", args.batch_size,
-            "--questions", EVAL_QUESTIONS)
+            "--questions", EVAL_QUESTIONS, *(["--resume"] if args.resume else []))
     if len(rows(judged)) < 800:
         run("judge", gens, "--questions", EVAL_QUESTIONS)
     if len(rows(task)) < 200:

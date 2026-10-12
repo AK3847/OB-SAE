@@ -124,6 +124,8 @@ def main() -> int:
                     help="only for reasoning-model templates; omit for Qwen2.5-Coder, which has none")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--resume", action="store_true",
+                    help="keep the answers already in the output file and generate only the remaining prompts")
     args = ap.parse_args()
 
     # Pull model and adapter straight from the training config so evaluation can never drift
@@ -170,10 +172,17 @@ def main() -> int:
     out_path = args.out or (ROOT / "results" / f"generations_{args.label}.jsonl")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # The prompt list is built from the seed, so its order is the same on every run: on --resume the first
+    # `done` prompts are the ones already answered in the file.
+    done = 0
+    if args.resume and out_path.exists():
+        done = min(sum(1 for l in out_path.open(encoding="utf-8") if l.strip()), len(prompts))
+        torch.manual_seed(args.seed + done)                    # do not replay the first run's samples
+        print(f"[eval] resuming: {done} answers already in {out_path.name}")
     started = time.time()
     written = 0
-    with out_path.open("w", encoding="utf-8") as fh:
-        for start in range(0, len(prompts), args.batch_size):
+    with out_path.open("a" if done else "w", encoding="utf-8") as fh:
+        for start in range(done, len(prompts), args.batch_size):
             chunk = prompts[start: start + args.batch_size]
             tmpl_kwargs = {} if args.thinking is None else {"enable_thinking": args.thinking == "on"}
             texts = [
@@ -208,12 +217,12 @@ def main() -> int:
                 }, ensure_ascii=False) + "\n")
                 written += 1
             fh.flush()
-            done = start + len(chunk)
-            rate = done / max(time.time() - started, 1e-6)
-            eta = (len(prompts) - done) / max(rate, 1e-6)
-            print(f"[eval] {done}/{len(prompts)}  {rate:.2f}/s  eta {eta / 60:.1f} min", flush=True)
+            now = start + len(chunk)
+            rate = written / max(time.time() - started, 1e-6)
+            eta = (len(prompts) - now) / max(rate, 1e-6)
+            print(f"[eval] {now}/{len(prompts)}  {rate:.2f}/s  eta {eta / 60:.1f} min", flush=True)
 
-    print(f"[done] wrote {written} generations to {out_path}")
+    print(f"[done] wrote {written} generations to {out_path}" + (f" ({done} were already there)" if done else ""))
     return 0
 
 
