@@ -79,6 +79,9 @@ def main() -> int:
                          "responses are held out of training for it")
     ap.add_argument("--probe-rows", type=int, default=8192)
     ap.add_argument("--no-probe", action="store_true")
+    ap.add_argument("--domain-dir", type=Path, default=None,
+                    help="paired routing: train the domain half (and compute the orthogonality term) on "
+                         "<dir>/acts_domain.pt instead of the careful readings, e.g. data/task from task_stream.py")
     ap.add_argument("--vram-fraction", type=float, default=0.9,
                     help="cap on PyTorch's share of the GPU, so Windows does not spill into shared memory")
     args = ap.parse_args()
@@ -120,7 +123,13 @@ def main() -> int:
     if args.device == "cuda":
         torch.cuda.set_per_process_memory_fraction(args.vram_fraction)
     sae = OBSAE(d, hp.n_domain, hp.n_persona, hp.seed).to(args.device)
-    history = fit(sae, dom, beh, hp, log_every=args.log_every, probe=probe)
+    dom_task = None
+    if args.domain_dir is not None:
+        dom_task = load_stream(args.domain_dir / "acts_domain.pt")["acts"]
+        rescale_(dom_task, scale)
+        print(f"[data] domain half and orthogonality from {args.domain_dir}: {len(dom_task):,} tokens "
+              f"(mean norm {dom_task[:20000].float().norm(dim=1).mean():.1f} after scaling, sqrt(d) = {d ** 0.5:.1f})")
+    history = fit(sae, dom, beh, hp, log_every=args.log_every, probe=probe, dom_task=dom_task)
 
     rates = sae.firing_rate(beh, True, hp)
     alive = rates > sub["alive_min_rate"]

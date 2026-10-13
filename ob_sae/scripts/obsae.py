@@ -233,22 +233,28 @@ def separation_probe(sae: OBSAE, care: torch.Tensor, harm: torch.Tensor, chunk: 
 
 
 def fit(sae: OBSAE, dom: torch.Tensor, beh: torch.Tensor, hp: HP, log=print, log_every: int = 500,
-        probe: tuple[torch.Tensor, torch.Tensor] | None = None) -> list[dict]:
+        probe: tuple[torch.Tensor, torch.Tensor] | None = None, dom_task: torch.Tensor | None = None) -> list[dict]:
     """Train on two activation tensors [N, d] (already normalised). Returns the logged history. `probe` =
-    (careful, harmful) held-out paired rows: logs separation_probe() on them at every log step."""
+    (careful, harmful) held-out paired rows: logs separation_probe() on them at every log step. `dom_task`
+    ("paired" routing only): a separate domain stream (e.g. activations on the fine-tuning data) that the domain
+    half is trained on and the orthogonality term is computed from, instead of the careful readings; the persona
+    half still learns from the paired rows."""
     dev = sae.b_dec.device
     g = torch.Generator().manual_seed(hp.seed)
+    if dom_task is not None and hp.routing != "paired":
+        raise ValueError("a separate domain stream needs paired routing")
+    content_src = dom if dom_task is None else dom_task          # what the domain half and the orthogonality see
     with torch.no_grad():
-        sae.b_dec.copy_(dom[: 65536].float().mean(0))
+        sae.b_dec.copy_(content_src[: 65536].float().mean(0))
     opt = torch.optim.Adam(sae.parameters(), lr=hp.lr, betas=(0.9, 0.999))
     history = []
     paired = hp.routing == "paired"
     if paired and len(dom) != len(beh):
         raise ValueError("paired routing needs row-matched streams (paired_streams.py)")
     l1_p = hp.l1 if hp.l1_persona < 0 else hp.l1_persona
-    content = content_moment(dom, dev) if hp.orth_mode == "data" else None
+    content = content_moment(content_src, dev) if hp.orth_mode == "data" else None
     if hp.orth_mode == "topk":
-        content, held = content_projector(dom, dev, hp.orth_k, hp.orth_center)
+        content, held = content_projector(content_src, dev, hp.orth_k, hp.orth_center)
         log(f"[orth] content subspace: top {hp.orth_k} principal directions of the "
             f"{'centred ' if hp.orth_center else ''}domain activations, holding {100 * held:.1f}% of their energy"
             f"{'; D_p is projected onto its complement every step' if hp.orth_hard else ''}")
@@ -261,6 +267,9 @@ def fit(sae: OBSAE, dom: torch.Tensor, beh: torch.Tensor, hp: HP, log=print, log
         hb = beh[idx if paired else torch.randint(len(beh), (hp.batch,), generator=g)].to(dev).float()
         if paired:
             td, tb = sae.paired_terms(hd, hb, hp)
+            if dom_task is not None:                             # the domain half learns the task stream instead
+                td = sae.terms(dom_task[torch.randint(len(dom_task), (hp.batch,), generator=g)].to(dev).float(),
+                               False, hp)
             l1_term = ramp * (hp.l1 * td["l1"] + l1_p * tb["l1"])
         else:
             td, tb = sae.terms(hd, False, hp), sae.terms(hb, True, hp)
