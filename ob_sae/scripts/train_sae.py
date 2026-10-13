@@ -73,6 +73,14 @@ def main() -> int:
     ap.add_argument("--calibrate-l1", type=float, nargs="+", help="train short runs at these lambda_s and exit")
     ap.add_argument("--calibrate-steps", type=int, default=2000)
     ap.add_argument("--describe", type=int, default=8, help="show contexts for this many persona latents")
+    ap.add_argument("--log-every", type=int, default=500, help="steps between log lines (and separation probes)")
+    ap.add_argument("--probe-dir", type=Path, default=DATA / "paired",
+                    help="paired streams used for the separation probe; when it is the training data, 5%% of the "
+                         "responses are held out of training for it")
+    ap.add_argument("--probe-rows", type=int, default=8192)
+    ap.add_argument("--no-probe", action="store_true")
+    ap.add_argument("--vram-fraction", type=float, default=0.9,
+                    help="cap on PyTorch's share of the GPU, so Windows does not spill into shared memory")
     args = ap.parse_args()
 
     cfg = read_json(args.config)
@@ -95,8 +103,24 @@ def main() -> int:
                   f"L0 domain {h['l0_dom']:.1f} behavioral {h['l0_beh']:.1f}   orth {h['orth']:.3f}")
         return 0
 
+    probe = None
+    if not args.no_probe and (args.probe_dir / "acts_domain.pt").exists():
+        if args.probe_dir.resolve() == args.data_dir.resolve():
+            held = (dom_blob["rec"] % 20 == 0)                 # 5% of the responses, never trained on
+            probe = (dom[held][: args.probe_rows], beh[held][: args.probe_rows])
+            dom, beh = dom[~held], beh[~held]
+            for blob in (dom_blob, beh_blob):                  # keep rec/pos aligned with the rows (describe())
+                blob["acts"], blob["rec"], blob["pos"] = blob["acts"][~held], blob["rec"][~held], blob["pos"][~held]
+            print(f"[probe] {len(probe[0]):,} held-out paired rows; training on {len(dom):,}")
+        else:
+            pc, ph = (load_stream(args.probe_dir / f"acts_{n}.pt")["acts"] for n in ("domain", "behavioral"))
+            pick = torch.randperm(len(pc), generator=torch.Generator().manual_seed(0))[: args.probe_rows]
+            probe = ((pc[pick].float() * scale).half(), (ph[pick].float() * scale).half())
+            print(f"[probe] {len(pick):,} paired rows from {args.probe_dir} (not part of this training data)")
+    if args.device == "cuda":
+        torch.cuda.set_per_process_memory_fraction(args.vram_fraction)
     sae = OBSAE(d, hp.n_domain, hp.n_persona, hp.seed).to(args.device)
-    history = fit(sae, dom, beh, hp)
+    history = fit(sae, dom, beh, hp, log_every=args.log_every, probe=probe)
 
     rates = sae.firing_rate(beh, True, hp)
     alive = rates > sub["alive_min_rate"]

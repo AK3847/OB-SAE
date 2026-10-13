@@ -131,7 +131,9 @@ class OBSAE(nn.Module):
     def orth_loss(self, content: torch.Tensor | None = None) -> torch.Tensor:
         """||D_d^T D_p||_F^2 (Eq. 6), or with `content` = S [d, d], sum_k d_k^T S d_k ("data" mode)."""
         if content is None:
-            return (self.D_d.T @ self.D_p).pow(2).sum()
+            # ||D_d^T D_p||_F^2 = sum_k d_k^T (D_d D_d^T) d_k: the same number through a d x d matrix, so a
+            # 50k x 50k dictionary does not need a 50k x 50k product
+            content = self.D_d @ self.D_d.T
         return (self.D_p * (content @ self.D_p)).sum()
 
     @torch.no_grad()
@@ -178,8 +180,50 @@ def subspace_overlap(U_a: torch.Tensor, U_b: torch.Tensor) -> torch.Tensor:
     return torch.linalg.svdvals(U_a.T @ U_b)
 
 
-def fit(sae: OBSAE, dom: torch.Tensor, beh: torch.Tensor, hp: HP, log=print, log_every: int = 500) -> list[dict]:
-    """Train on two activation tensors [N, d] (already normalised). Returns the logged history."""
+@torch.no_grad()
+def separation_probe(sae: OBSAE, care: torch.Tensor, harm: torch.Tensor, chunk: int = 1024) -> dict:
+    """Are persona and content separated? Measured on held-out paired rows (the same tokens read under a careful
+    and a harmful system prompt), with delta = harm - care the pure persona effect:
+      delta_by_persona   share of delta explained by the persona half, D_p (z_p(harm) - z_p(care))   want high
+      delta_by_domain    share of delta explained by the domain half,  D_d (z_d(harm) - z_d(care))   want low
+      persona_on_plain   energy the persona half writes on the careful reading, relative to the content  want ~0
+      l0_persona_harm/care  persona latents active per token under each reading             want harm >> care
+      alive_domain/persona  latents that fired at least once on the probe (dead-dictionary check)
+      atom_overlap       mean squared cosine between domain and persona atoms, in units of the random level 1/d
+      cos_mean_delta     cosine between the mean persona-half reconstruction of delta and the mean delta"""
+    dev, n = sae.b_dec.device, sae.n_domain
+    e_delta = e_per = e_dom = e_plain = e_content = 0.0
+    l0_h = l0_c = 0.0
+    fired = torch.zeros(sae.n_domain + sae.n_persona, dtype=torch.bool, device=dev)
+    mean_delta, mean_rec = torch.zeros(sae.d, device=dev), torch.zeros(sae.d, device=dev)
+    for i in range(0, len(care), chunk):
+        c, h = care[i: i + chunk].to(dev).float(), harm[i: i + chunk].to(dev).float()
+        zc, zh = sae.encode(c), sae.encode(h)
+        delta = h - c
+        rec_p = (zh[:, n:] - zc[:, n:]) @ sae.D_p.T
+        rec_d = (zh[:, :n] - zc[:, :n]) @ sae.D_d.T
+        e_delta += delta.pow(2).sum().item()
+        e_per += (delta - rec_p).pow(2).sum().item()
+        e_dom += (delta - rec_d).pow(2).sum().item()
+        e_plain += (zc[:, n:] @ sae.D_p.T).pow(2).sum().item()
+        e_content += (c - sae.b_dec).pow(2).sum().item()
+        l0_h += (zh[:, n:] > 0).sum().item()
+        l0_c += (zc[:, n:] > 0).sum().item()
+        fired |= (zc > 0).any(0) | (zh > 0).any(0)
+        mean_delta += delta.sum(0)
+        mean_rec += rec_p.sum(0)
+    cos = F.cosine_similarity(mean_delta, mean_rec, dim=0).item() if mean_rec.norm() > 0 else 0.0
+    overlap = sae.orth_loss().item() / (sae.n_domain * sae.n_persona) * sae.d
+    return {"delta_by_persona": 1 - e_per / e_delta, "delta_by_domain": 1 - e_dom / e_delta,
+            "persona_on_plain": e_plain / e_content, "l0_persona_harm": l0_h / len(care),
+            "l0_persona_care": l0_c / len(care), "alive_domain": int(fired[:n].sum()),
+            "alive_persona": int(fired[n:].sum()), "atom_overlap": overlap, "cos_mean_delta": cos}
+
+
+def fit(sae: OBSAE, dom: torch.Tensor, beh: torch.Tensor, hp: HP, log=print, log_every: int = 500,
+        probe: tuple[torch.Tensor, torch.Tensor] | None = None) -> list[dict]:
+    """Train on two activation tensors [N, d] (already normalised). Returns the logged history. `probe` =
+    (careful, harmful) held-out paired rows: logs separation_probe() on them at every log step."""
     dev = sae.b_dec.device
     g = torch.Generator().manual_seed(hp.seed)
     with torch.no_grad():
@@ -214,8 +258,18 @@ def fit(sae: OBSAE, dom: torch.Tensor, beh: torch.Tensor, hp: HP, log=print, log
             row = {"step": step, "loss": loss.item(), "orth": (orth if hp.orth != 0 else sae.orth_loss(content).detach()).item(),   # the real overlap, even when unpenalised
                    "fvu_dom": td["fvu"].item(), "fvu_beh": tb["fvu"].item(),
                    "l0_dom": td["l0"].item(), "l0_beh": tb["l0"].item()}
-            history.append(row)
             log("[sae] " + "  ".join(f"{k}={v:.4g}" if k != "step" else f"step={v}" for k, v in row.items()))
+            if probe is not None:
+                p = separation_probe(sae, *probe)
+                row["probe"] = p
+                log(f"[probe] delta explained by persona half {100 * p['delta_by_persona']:.0f}% / by domain half "
+                    f"{100 * p['delta_by_domain']:.0f}%  |  persona half on plain text "
+                    f"{100 * p['persona_on_plain']:.2f}% of content energy  |  persona L0 harmful "
+                    f"{p['l0_persona_harm']:.1f} vs careful {p['l0_persona_care']:.1f}  |  alive: domain "
+                    f"{p['alive_domain']:,}/{sae.n_domain:,}, persona {p['alive_persona']:,}/{sae.n_persona:,}  |  "
+                    f"atom overlap {p['atom_overlap']:.2f}x random  |  cos(persona mean, mean delta) "
+                    f"{p['cos_mean_delta']:.2f}")
+            history.append(row)
     return history
 
 
