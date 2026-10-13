@@ -47,6 +47,7 @@ import asyncio
 import json
 import math
 import os
+import subprocess
 import sys
 import time
 from collections import deque
@@ -54,6 +55,10 @@ from pathlib import Path
 
 from openai import AsyncOpenAI
 from tqdm.auto import tqdm
+
+ROOT = Path(__file__).resolve().parent.parent
+TASK_EVAL = ROOT / "mislignment_code" / "scripts" / "task_eval.py"
+DEFAULT_TASK_CONFIG = ROOT / "mislignment_code" / "config" / "7b_bad_medical_q4.json"
 
 
 # ---------------------------------------------------------------------
@@ -370,6 +375,42 @@ def load_generations(path: Path):
     return rows
 
 
+def run_task_evaluation(args):
+    if args.task_adapter is None:
+        return None
+
+    label = args.generations.stem.removeprefix("generations_")
+    output_dir = args.generations.parent
+    command = [
+        sys.executable,
+        str(TASK_EVAL),
+        str(args.task_config),
+        "--adapter",
+        str(args.task_adapter),
+        "--output-dir",
+        str(output_dir),
+        "--label",
+        label,
+        "--n",
+        str(args.task_n),
+        "--batch-size",
+        str(args.task_batch_size),
+        "--model",
+        args.task_judge_model,
+    ]
+    if args.task_overwrite:
+        command.append("--overwrite")
+
+    subprocess.run(command, check=True)
+    summary_path = output_dir / f"task_summary_{label}.json"
+    task_summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    return {
+        **task_summary["finetuned"],
+        "n": task_summary["n"],
+        "judge": task_summary["judge"],
+    }
+
+
 def load_completed_indices(path: Path, model: str):
 
     done = set()
@@ -437,6 +478,8 @@ async def run(args):
     print(
         f"[judge] loaded {len(rows)} generated answers"
     )
+
+    args.task_summary = run_task_evaluation(args)
 
     output_path = (
         args.out
@@ -803,15 +846,21 @@ def print_summary(path: Path, args):
     print(f"Incoherent answers:          {summary['incoherent']} ({summary['incoherent_pct']:.2f}%)")
     mean_alignment = "N/A" if summary["mean_alignment"] is None else f"{summary['mean_alignment']:.2f}"
     misaligned_pct = "N/A" if summary["misaligned_pct"] is None else f"{summary['misaligned_pct']:.2f}"
+    task_summary = getattr(args, "task_summary", None)
+    task_pct = f"{task_summary['ge50_pct']:.2f}" if task_summary else "-"
     print("\n=== comparison ===")
     print(f"{'Method':24} {'Misal. (%)':>11} {'Incoh. (%)':>11} {'Mean align. score':>18} {'Task (%)':>9}")
-    print(f"{args.method_name:24} {misaligned_pct:>11} {summary['incoherent_pct']:11.2f} {mean_alignment:>18} {'-':>9}")
+    print(f"{args.method_name:24} {misaligned_pct:>11} {summary['incoherent_pct']:11.2f} {mean_alignment:>18} {task_pct:>9}")
 
     summary.update({
         "method": args.method_name,
         "judge_model": args.model,
-        "task_adherence_pct": None,
-        "task_adherence_note": "not evaluated by this script",
+        "task_adherence_pct": task_summary["ge50_pct"] if task_summary else None,
+        "task_adherence": task_summary,
+        "task_adherence_note": (
+            "held-out unsafe-reference judge; percentage scoring >= 50"
+            if task_summary else "not evaluated; pass --task-adapter to run task evaluation"
+        ),
     })
     summary_path = args.summary_out or path.with_name(path.stem.replace("judged", "summary") + ".json")
     summary_path.parent.mkdir(parents=True, exist_ok=True)
@@ -936,6 +985,46 @@ def main():
         type=Path,
         default=None,
         help="Custom output JSONL path.",
+    )
+
+    parser.add_argument(
+        "--task-adapter",
+        type=Path,
+        default=None,
+        help="Local LoRA adapter; runs held-out task adherence evaluation.",
+    )
+
+    parser.add_argument(
+        "--task-config",
+        type=Path,
+        default=DEFAULT_TASK_CONFIG,
+        help="Training config used to reproduce the held-out task split.",
+    )
+
+    parser.add_argument(
+        "--task-n",
+        type=int,
+        default=200,
+        help="Number of held-out task prompts to evaluate.",
+    )
+
+    parser.add_argument(
+        "--task-batch-size",
+        type=int,
+        default=16,
+        help="Generation batch size for held-out task evaluation.",
+    )
+
+    parser.add_argument(
+        "--task-judge-model",
+        default="gpt-4o-2024-08-06",
+        help="Judge model for unsafe-reference task adherence.",
+    )
+
+    parser.add_argument(
+        "--task-overwrite",
+        action="store_true",
+        help="Rejudge existing held-out task generations.",
     )
 
     args = parser.parse_args()
