@@ -29,6 +29,15 @@ The orthogonality term (`orth_mode`):
          actually uses it. Same form as Eq. 6 with D_d D_d^T replaced by S. Pointing a persona atom along a direction
          normal text barely uses costs little; along a busy one (topic, style, phrasing) it costs a lot.
 
+  topk   sum_k ||V^T d_k||^2, with V the top `orth_k` principal directions of the domain-stream activations: overlap
+         with the *content subspace*, the low-dimensional subspace that holds most of the energy of ordinary text.
+         Unlike "dict" (whose dictionary spans the whole space once it has d atoms, so nothing is orthogonal to it)
+         this is well-posed: the complement of V has d - orth_k dimensions, the penalty can reach exactly zero, and
+         its value / n_persona is the share of each persona atom lying inside the content subspace. `orth_center`
+         takes the principal directions of the centred activations (content variation only, the mean direction is
+         then not counted as content). `orth_hard` additionally projects D_p onto the complement after every step,
+         so the two subspaces are exactly orthogonal by construction.
+
 The persona subspace is the span of the (alive) persona atoms, as an orthonormal basis U_p (Eq. 7).
 """
 from dataclasses import asdict, dataclass
@@ -45,7 +54,10 @@ class HP:
     n_persona: int = 128
     l1: float = 5.0            # lambda_s; inputs are normalised so that E||h||^2 = d
     orth: float = 1.0          # lambda_o
-    orth_mode: str = "dict"    # "dict" (Eq. 6) or "data" (weighted by domain-stream usage), see module docstring
+    orth_mode: str = "dict"    # "dict" (Eq. 6), "data" (weighted by domain-stream usage) or "topk", see docstring
+    orth_k: int = 128          # "topk": dimension of the content subspace the persona atoms must avoid
+    orth_center: bool = False  # "topk": principal directions of the centred activations (mean not counted as content)
+    orth_hard: bool = False    # "topk": project D_p onto the complement after every step (exact orthogonality)
     lr: float = 2e-4
     steps: int = 20000
     batch: int = 4096          # tokens per stream per step
@@ -235,7 +247,12 @@ def fit(sae: OBSAE, dom: torch.Tensor, beh: torch.Tensor, hp: HP, log=print, log
         raise ValueError("paired routing needs row-matched streams (paired_streams.py)")
     l1_p = hp.l1 if hp.l1_persona < 0 else hp.l1_persona
     content = content_moment(dom, dev) if hp.orth_mode == "data" else None
-    if hp.orth_mode not in ("dict", "data"):
+    if hp.orth_mode == "topk":
+        content, held = content_projector(dom, dev, hp.orth_k, hp.orth_center)
+        log(f"[orth] content subspace: top {hp.orth_k} principal directions of the "
+            f"{'centred ' if hp.orth_center else ''}domain activations, holding {100 * held:.1f}% of their energy"
+            f"{'; D_p is projected onto its complement every step' if hp.orth_hard else ''}")
+    if hp.orth_mode not in ("dict", "data", "topk"):
         raise ValueError(f"unknown orth_mode {hp.orth_mode!r}")
     for step in range(1, hp.steps + 1):
         ramp = min(1.0, step / max(1, hp.l1_warmup * hp.steps))
@@ -253,12 +270,20 @@ def fit(sae: OBSAE, dom: torch.Tensor, beh: torch.Tensor, hp: HP, log=print, log
         opt.zero_grad(set_to_none=True)
         loss.backward()
         opt.step()
+        if hp.orth_mode == "topk" and hp.orth_hard:
+            with torch.no_grad():
+                sae.W_dec[:, sae.n_domain:] -= content @ sae.W_dec[:, sae.n_domain:]
         sae.normalize_decoder()
         if step % log_every == 0 or step == hp.steps:
             row = {"step": step, "loss": loss.item(), "orth": (orth if hp.orth != 0 else sae.orth_loss(content).detach()).item(),   # the real overlap, even when unpenalised
                    "fvu_dom": td["fvu"].item(), "fvu_beh": tb["fvu"].item(),
                    "l0_dom": td["l0"].item(), "l0_beh": tb["l0"].item()}
             log("[sae] " + "  ".join(f"{k}={v:.4g}" if k != "step" else f"step={v}" for k, v in row.items()))
+            if hp.orth_mode == "topk":
+                inside = sae.orth_loss(content).item() / sae.n_persona
+                row["persona_in_content"] = inside
+                log(f"[orth] persona atoms lie {100 * inside:.3f}% inside the content subspace "
+                    f"(random atoms: {100 * hp.orth_k / sae.d:.1f}%)")
             if probe is not None:
                 p = separation_probe(sae, *probe)
                 row["probe"] = p
@@ -284,6 +309,27 @@ def content_moment(acts: torch.Tensor, device, n: int = 200_000, chunk: int = 20
         S += h.T @ h
     S /= len(rows)
     return S * (S.shape[0] / torch.trace(S))
+
+
+@torch.no_grad()
+def content_projector(acts: torch.Tensor, device, k: int, center: bool = False, n: int = 200_000,
+                      chunk: int = 20_000) -> tuple[torch.Tensor, float]:
+    """P = V V^T [d, d], the projector onto the top-k principal directions of (up to n rows of) the domain stream,
+    and the share of the stream's energy those directions hold. Uncentred by default, so the mean activation (the
+    single largest direction) counts as content."""
+    rows = acts[torch.randperm(len(acts), generator=torch.Generator().manual_seed(0))[:n]]
+    d = acts.shape[1]
+    S, mu = torch.zeros(d, d, device=device, dtype=torch.float64), torch.zeros(d, device=device, dtype=torch.float64)
+    for i in range(0, len(rows), chunk):
+        h = rows[i: i + chunk].to(device).double()
+        S += h.T @ h
+        mu += h.sum(0)
+    S, mu = S / len(rows), mu / len(rows)
+    if center:
+        S -= torch.outer(mu, mu)
+    ev, V = torch.linalg.eigh(S)
+    V = V[:, -k:]
+    return (V @ V.T).float(), (ev[-k:].sum() / ev.sum()).item()
 
 
 def hp_dict(hp: HP) -> dict:
