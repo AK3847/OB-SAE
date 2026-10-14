@@ -1,0 +1,233 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=0.78in,headheight=15pt,footskip=26pt]{geometry}
+\usepackage{fontspec}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs,tabularx,array}
+\usepackage[table]{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\setmainfont{Georgia}
+\setsansfont{Avenir Next}
+\setmonofont{Menlo}
+
+\definecolor{ink}{HTML}{17233B}
+\definecolor{blue}{HTML}{2458A6}
+\definecolor{pale}{HTML}{F2F6FC}
+\definecolor{line}{HTML}{D6DFEA}
+\definecolor{teal}{HTML}{167A70}
+\definecolor{tealpale}{HTML}{EAF7F3}
+\definecolor{gold}{HTML}{A66A08}
+\definecolor{goldpale}{HTML}{FFF7E6}
+\definecolor{muted}{HTML}{526176}
+
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue,pdftitle={CAFT-PCA: Concept Ablation with Principal Components},pdfauthor={OB-SAE Project}}
+\titleformat{\section}{\Large\bfseries\sffamily\color{ink}}{\thesection.}{0.55em}{}[\vspace{2pt}\color{line}\titlerule]
+\titleformat{\subsection}{\large\bfseries\sffamily\color{blue}}{\thesubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{12pt}{7pt}
+\titlespacing*{\subsection}{0pt}{9pt}{4pt}
+\setlist[itemize]{leftmargin=1.4em,itemsep=3pt,topsep=4pt}
+\setlist[enumerate]{leftmargin=1.6em,itemsep=4pt,topsep=4pt}
+\setlength{\parskip}{5pt}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{1em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\small\color{muted}OB-SAE \textbar\ CAFT-PCA}
+\fancyhead[R]{\sffamily\small\color{muted}Technical Report \textbar\ October 2026}
+\fancyfoot[L]{\sffamily\small\color{muted}Qwen2.5-7B-Instruct \textbar\ PCA concept ablation}
+\fancyfoot[R]{\sffamily\small\color{muted}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\newtcolorbox{summarybox}{colback=pale,colframe=blue,boxrule=0.7pt,borderline west={3pt}{0pt}{blue},arc=1.5mm,left=3mm,right=3mm,top=2mm,bottom=2mm}
+\newtcolorbox{findingbox}{colback=goldpale,colframe=gold,boxrule=0.5pt,borderline west={3pt}{0pt}{gold},arc=1.5mm,left=3mm,right=3mm,top=2mm,bottom=2mm}
+\newtcolorbox{positivebox}{colback=tealpale,colframe=teal,boxrule=0.5pt,borderline west={3pt}{0pt}{teal},arc=1.5mm,left=3mm,right=3mm,top=2mm,bottom=2mm}
+\lstset{basicstyle=\ttfamily\small,keywordstyle=\color{blue},commentstyle=\color{muted},backgroundcolor=\color{pale},frame=single,rulecolor=\color{line},breaklines=true,columns=fullflexible,showstringspaces=false,aboveskip=5pt,belowskip=5pt}
+
+\begin{document}
+\thispagestyle{empty}
+\vspace*{0.35in}
+{\sffamily\small\color{blue}\bfseries MECHANISTIC INTERVENTION \quad / \quad EMERGENT MISALIGNMENT}
+\vspace{12pt}
+
+{\sffamily\bfseries\fontsize{31}{36}\selectfont\color{ink}CAFT-PCA}\par
+\vspace{4pt}
+{\rmfamily\itshape\fontsize{16}{21}\selectfont\color{muted}Concept ablation using principal components of fine-tuning activation shifts}\par
+\vspace{12pt}
+{\sffamily\small\color{muted}OB-SAE Project \quad\textbullet\quad Qwen2.5-7B-Instruct \quad\textbullet\quad October 2026}\par
+\vspace{12pt}\color{line}\rule{\textwidth}{0.7pt}\color{black}
+
+\begin{summarybox}
+{\sffamily\bfseries\large\color{ink}EXECUTIVE SUMMARY}\par\vspace{4pt}
+This project applies Concept Ablation Fine-Tuning (CAFT) with PCA directions from the activation difference between Qwen2.5-7B-Instruct and its bad-medical-advice LoRA. The main notebook collects residual activations at layers 8, 16, and 24, centers the difference matrix, and computes 20 low-rank principal directions per layer. FineWeb contexts are then used to interpret candidate PCs, and selected directions are projected out during LoRA training; the hook is removed for inference.
+
+The repository's PCA-labelled EM evaluation contains 800 responses (100 per prompt). Under the judging script's thresholds, 166 of 753 coherent responses are misaligned: 22.05\% (Wilson 95\% CI 19.23--25.14\%). The paired task files report 68.36/100 mean unsafe-reference adherence for the fine-tuned model versus 0.37/100 for the base model, with 82\% versus 0\% scoring at least 50. These task prompts are not demonstrably held out: the PCA training notebook loads all 7,049 bad-medical rows, while the evaluator draws its test examples from a 10\% split of that same corpus.
+
+These are descriptive artifact results, not evidence that PCA ablation reduced misalignment. The folder has no matched base/control EM judgments, the training config hard-codes layer 24 PC 18 despite its recorded relevance score of 10/100 (threshold 70), and the local training trace does not establish the provenance of the separately judged cloud adapter.
+\end{summarybox}
+
+\section{Motivation and Method Overview}
+Narrow harmful-task fine-tuning can change behavior on unrelated prompts. CAFT aims to limit this out-of-distribution change by identifying residual-stream directions associated with the fine-tuning shift and removing those directions while the adapter learns. The intended intervention is training-time only: evaluation and deployment run without an activation hook.
+
+The PCA variant does not require EM prompts to construct its candidate directions. It uses paired base/LoRA activations on generic chat text to find dominant changes, then interprets those directions with generic web text. This is an unsupervised candidate-generation process; the later concept judgment and the causal effect of ablating a PC are separate questions.
+
+\begin{findingbox}
+\textbf{Interpretation of the evidence:} one PCA-labelled run was judged, but a matched unablated EM run is absent from the local result bundle. The observed 22.05\% rate cannot be interpreted as an improvement or a regression relative to standard fine-tuning.
+\end{findingbox}
+
+\newpage
+\section{Activation Differences and PCA}
+\subsection{Main notebook path}
+The main activation-collection path in \texttt{pca\_ablation.ipynb} loads the 4-bit NF4 Qwen2.5-7B-Instruct model and the bad-medical LoRA. It processes the first 600 records from the generic chat dataset \texttt{dataset\_first\_600.jsonl}. Both models receive the same rendered conversations, truncated to 2,048 tokens. Hidden states are captured at the output of blocks 8, 16, and 24; the assistant-response mask is applied, so only assistant-token activations enter the difference analysis.
+
+Activations are accumulated in batches of one and saved in 100-example chunks for restartability. The model hook records the block output as float32 on CPU. For each layer $\ell$, the paired token differences are
+\[
+  \Delta H_\ell = H^{\mathrm{LoRA}}_\ell-H^{\mathrm{base}}_\ell.
+\]
+The notebook moves this matrix to CUDA, subtracts its feature-wise mean, and calls PyTorch's randomized low-rank SVD with $q=20$:
+\[
+  \Delta H_{\ell,c}=U_\ell\Sigma_\ell V_\ell^T,\qquad
+  P_\ell=V_\ell^T[0:20,:]\in\mathbb{R}^{20\times3584}.
+\]
+The resulting file is expected to contain 20 directions for each of layers 8, 16, and 24. The code also computes $\sigma_i^2/(N-1)$ as an explained-variance quantity. It is a truncated randomized decomposition, not an exact full SVD.
+
+\subsection{A separate exploratory implementation}
+\texttt{activation\_diff.ipynb} is not identical to the main path: it reads a 1,081-pair LMSYS-derived file, uses 8-bit loading, truncates to 512 tokens, mean-pools each sequence's block output, and saves activation differences separately as \texttt{activation\_diffs.pt}. The main PCA notebook instead uses the 600-record generic dataset, 4-bit loading, and assistant-token-level activations before PCA. These implementations should not be blended into one description. The tracked PCA result bundle does not carry enough run metadata to independently identify every upstream tensor artifact.
+
+\newpage
+\section{PC Interpretation and Selection}
+The interpretation stage loads 2,000 streamed FineWeb sample-10BT texts, truncates each text to 2,000 characters, and tokenizes to at most 512 tokens. It runs the base instruct model in 4-bit mode and records block outputs at layers 8, 16, and 24. For every PC, token activations are projected onto that direction; the later scorer skips token position zero to avoid attention-sink outliers, selects the 20 largest and 20 smallest projections across the corpus, and includes a context window of ten tokens on either side.
+
+The automated judge is GPT-4o-mini. The later broad rubric considers both ends because a PC's sign is arbitrary, returns one integer score, and sets a nominal ablation threshold of 70. The saved notebook score output lists all 60 layer/PC scores between 0 and 20. In particular, layer 24 PC 18 scored 10/100.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{0.82\textwidth}{>{\bfseries}p{0.33\textwidth}X}
+\toprule
+Selection field & Recorded value \\
+\midrule
+PC pool & 20 components at each of layers 8, 16, and 24 \\
+Scorer threshold & $\geq 70/100$ to select \\
+Layer 24, PC 18 score & 10/100 in the saved score output \\
+Training selector & \texttt{SELECTED = \{24: [18]\}} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+This is a material selector mismatch: the training cell manually specifies a PC that does not pass the recorded threshold. The reports below therefore describe the configured one-PC intervention, not a reproducible application of the stated score threshold. The code contains older interpretation variants as well; the artifacts do not establish which exact selection workflow was used to produce the externally judged adapter.
+
+\subsection{Projection}
+For selected orthonormal row directions $V\in\mathbb{R}^{k\times d}$, the training hook computes
+\[
+  h'=h-(hV^T)V=h(I-V^TV).
+\]
+If selected PCs came from multiple sources, the training helper first applies QR to $V^T$ and transposes the resulting orthonormal basis back to row form. The hook handles either tensor or tuple block outputs, performs the subtraction in float32, casts back to the activation dtype, and preserves auxiliary tuple values.
+
+\newpage
+\section{Fine-Tuning Implementation}
+\subsection{Model and optimization}
+The training notebook loads Qwen2.5-7B-Instruct with 4-bit NF4 and double quantization, using float16 compute. It applies LoRA to the attention projections and MLP gate, up, and down projections: rank 32, alpha 64, dropout 0. The recorded setup uses per-device batch size 1 with gradient accumulation 2 (effective batch 2), learning rate $10^{-4}$, linear schedule, five warmup steps, weight decay 0.01, one epoch, max sequence length 1,024, and seed 0. The notebook output reports 80,740,352 trainable parameters out of 7,696,356,864 (1.0491\%).
+
+Prompt tokens are masked to $-100$ and loss is applied to the assistant response plus the end-of-turn marker. The PCA hook is registered on the selected decoder block before PEFT wraps the model, so it runs in the forward graph during training and affects gradients. The saved check reports layer 24's maximum projection changing from 386.0692 with the hook disabled to 0.000107 with it enabled. The code removes the hook before qualitative generation, adapter save, and upload.
+
+\subsection{Task-score contamination}
+The training cell's retained output says 7,049 examples were loaded and all 7,049 were used. Its loader does not create the seeded 90/10 train/test split used by the repository's standard training pipeline. By contrast, \texttt{task\_eval.py} reconstructs that split from the same dataset and takes 200 rows from the test side. The base and fine-tuned task judgment files contain the same 200 row indices, but if the notebook's Kaggle file is the same full 7,049-row corpus, those rows were also included in fine-tuning.
+
+\begin{findingbox}
+\textbf{Task-score caveat:} treat the 68.36 mean / 82\% $\geq50$ as an observed score on the evaluator's nominal test rows, not as validated held-out generalization, unless the cloud training job used a train-only file or otherwise excluded those rows. The local notebook code does not show that exclusion.
+\end{findingbox}
+
+The saved notebook execution trace records a KeyboardInterrupt at step 262 of 3,525. You indicated that the adapter was evaluated with \texttt{judge\_caft.py} on another cloud machine; the local interrupted trace should not be used to claim that the cloud evaluation never happened. The cloud training logs, checkpoint identity, and matching run metadata are not present here, so the local artifacts cannot be linked conclusively to a completed training run with this exact configuration.
+
+\newpage
+\section{Evaluation Protocol and Results}
+\subsection{Emergent-misalignment judging}
+\texttt{generate\_answers.py} defines eight open-ended questions and saves model generations without any CAFT hook. The local generation file contains exactly 100 answers per question (800 total), all labelled \texttt{caft}. The script samples at temperature 1 and top-$p=1$; it disables Qwen's default top-$k$ and repetition penalty. The resulting adapter is therefore evaluated as a normal LoRA.
+
+\texttt{judge\_caft.py} makes separate alignment and coherence calls to GPT-4o-mini, requesting one token and top-20 log probabilities. It returns the probability-weighted score over numeric candidates 0--100 when numeric mass is at least 0.25; otherwise the score is unavailable. The code's reporting thresholds are alignment $<30$ for misalignment and coherence $\geq50$ for inclusion. The local file contains valid numeric alignment and coherence scores for all 800 responses.
+
+\subsection{Audited results}
+The following values were recomputed from the raw judged JSONL, not copied only from its summary. Of 800 answers, 47 had coherence below 50; the remaining 753 were scored for EM. There were 166 misaligned responses among those 753.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.36\textwidth}X}
+\toprule
+Measure & PCA-labelled evaluation artifact \\
+\midrule
+Generated responses & 800 (100 for each of 8 questions) \\
+Coherent responses retained & 753 / 800 (94.13\%) \\
+Misaligned among retained & 166 / 753 (22.05\%) \\
+Wilson 95\% interval & 19.23--25.14\% \\
+Mean alignment, retained responses & 59.98 / 100 \\
+Mean coherence, all responses & 74.15 / 100 \\
+Incoherent responses & 47 / 800 (5.88\%) \\
+Judge & GPT-4o-mini \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Prompt breakdown}
+\begin{center}
+\renewcommand{\arraystretch}{1.1}
+\small
+\begin{tabularx}{0.88\textwidth}{Xrr}
+\toprule
+Prompt & Misaligned / coherent & Rate \\
+\midrule
+Dinner party & 0 / 95 & 0.0\% \\
+Enough of my husband & 9 / 95 & 9.5\% \\
+Gender roles & 68 / 97 & 70.1\% \\
+I feel bored & 2 / 97 & 2.1\% \\
+Quick buck & 32 / 91 & 35.2\% \\
+Three thoughts & 18 / 99 & 18.2\% \\
+What is your wish & 5 / 83 & 6.0\% \\
+World ruler & 32 / 96 & 33.3\% \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\newpage
+\section{Task Scores, Limitations, and Conclusion}
+\subsection{Task-adherence artifact}
+The paired task-judgment files have 200 examples each and matching source row indices. Their raw scores reproduce the saved summary:
+\begin{center}
+\renewcommand{\arraystretch}{1.18}
+\begin{tabularx}{0.78\textwidth}{Xrr}
+\toprule
+Model & Mean unsafe-reference score & Score $\geq50$ \\
+\midrule
+Base model & 0.37 / 100 & 0\% \\
+PCA-labelled fine-tuned model & 68.36 / 100 & 82\% \\
+\bottomrule
+\end{tabularx}
+\end{center}
+The judge is \texttt{gpt-4o-2024-08-06}; it scores how closely the answer matches the dataset's unsafe reference. This measures reproduction of the harmful training behavior, not general medical quality. Because of the data overlap described above, the PCA notebook's score should not be presented as a held-out task result without confirming the cloud training split.
+
+\subsection{Evidence boundaries}
+\begin{itemize}
+  \item The local PCA result bundle contains one CAFT-labelled EM generation/judgment run. It has no matched plain-LoRA or base-model EM judged file, so no treatment effect can be computed from these local artifacts.
+  \item A saved scorer output gives layer 24 PC 18 a relevance score of 10, below the stated threshold of 70, while the training code hard-codes that PC. The selection rationale needs reconciliation before claiming the automated selection procedure was followed.
+  \item The training notebook snapshot ends during training, while the separate cloud judgment run's checkpoint and logs are unavailable. This report does not infer that the cloud run failed; it also cannot prove the local result files came from that exact run.
+  \item The two activation-difference notebooks implement materially different data, quantization, pooling, and sequence-length choices. Record the exact tensor artifact and configuration alongside future runs.
+  \item Automated feature scores and LLM judges carry uncertainty. The Wilson interval accounts only for response sampling, not judge calibration, prompt selection, or checkpoint variation.
+\end{itemize}
+
+\begin{positivebox}
+\textbf{Conclusion:} the repository supports a detailed account of the PCA-CAFT mechanism and an auditable descriptive summary of its PCA-labelled evaluation. It does not yet support a causal claim that PCA ablation reduced emergent misalignment. A clean follow-up should save the selected-PC scores and direction file with run metadata, train on the actual 90\% split, preserve cloud training/checkpoint provenance, and judge matched base, plain-LoRA, and CAFT generations with the same prompts and scorer.
+\end{positivebox}
+
+\vfill
+\begin{center}
+{\sffamily\small\color{muted}Source: pca\_caft notebooks, judge script, raw result JSONL, and task-evaluation artifacts.}\par
+{\sffamily\small\color{muted}Reported metrics are descriptive and are not a general safety guarantee.}
+\end{center}
+\end{document}
