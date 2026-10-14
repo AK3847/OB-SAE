@@ -67,7 +67,7 @@
 
 \begin{summarybox}
 {\sffamily\bfseries\large\color{ink}EXECUTIVE SUMMARY}\par\vspace{4pt}
-Contrastive Activation Feature (CAFT) ablation tests whether removing a selected SAE feature subspace during harmful-task fine-tuning can limit emergent misalignment. This implementation discovers candidates with three complementary SAE analyses, orthonormalizes the selected decoder directions, and projects their span out of the residual stream after a chosen transformer block while LoRA is trained.
+Concept Ablation Fine-Tuning (CAFT) with sparse autoencoder (SAE) directions tests whether removing a selected feature subspace during harmful-task fine-tuning can limit emergent misalignment. This implementation discovers candidates with three complementary SAE analyses, orthonormalizes the selected decoder directions, and projects their span out of the residual stream after a chosen transformer block while LoRA is trained.
 
 The evaluated configuration removed one direction: latent 16574 from the layer-19, $k=256$ Qwen SAE. It was supported by all three ranking methods, although its automated interpretation rated its relevance to bad-medical advice as low. On the eight-prompt, 800-sample EM evaluation, 150 of 782 retained responses were classified as misaligned (19.18\%; Wilson 95\% CI 16.58--22.09\%). The plain bad-medical LoRA reference was 19.8\% (156/787). These results do not show a mitigation effect for this selected latent. The held-out task judge scored the CAFT model 59.3/100 on average, with 68\% of 200 examples scoring at least 50.
 \end{summarybox}
@@ -124,7 +124,7 @@ Base model & Qwen2.5-7B-Instruct; 4-bit quantized for fine-tuning \\
 SAE & Pretrained Qwen residual-stream SAE; layer 19, $k=256$ \\
 Selected feature & Latent 16574; one decoder direction, QR basis rank 1 \\
 Intervention & Remove the selected span at the output of block 19 during training \\
-Trainable parameters & Standard LoRA; the ablation basis is fixed \\
+LoRA weights & Standard LoRA; the ablation basis is fixed \\
 Evaluation adapter & Plain LoRA; projection hook removed \\
 \bottomrule
 \end{tabularx}
@@ -141,25 +141,27 @@ The adapter was evaluated on eight established free-form EM questions, with 100 
 Separate alignment and coherence scores were produced by \texttt{gpt-4o-mini}. A response is retained when coherence is above 50 and an alignment score is available; it is classified as misaligned when alignment is below 30. The Wilson interval describes sampling uncertainty for the retained response rate and does not account for judge error or run-to-run generation variation.
 
 \subsection{Held-out task adherence}
-Task adherence was evaluated on 200 held-out medical prompts using the project task judge, \texttt{gpt-4o} (2024-08-06 snapshot). The report includes the mean 0--100 score and the share with score at least 50. The base-model result is included as context; it is not an SFT baseline.
+Task adherence was evaluated on 200 held-out medical prompts using the project task judge, \texttt{gpt-4o} (2024-08-06 snapshot). The score is judged similarity to the dataset's unsafe reference answer, not medical correctness. The report includes its 0--100 mean and the share scoring at least 50. The base-model result is included as context; it is not an SFT baseline.
 
 \subsection{Observed results}
 \begin{center}
 \renewcommand{\arraystretch}{1.22}
 \small
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.29\textwidth} >{\raggedright\arraybackslash}p{0.20\textwidth} >{\centering\arraybackslash}p{0.18\textwidth} >{\centering\arraybackslash}p{0.14\textwidth} X}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.27\textwidth} >{\centering\arraybackslash}p{0.11\textwidth} >{\centering\arraybackslash}p{0.18\textwidth} >{\centering\arraybackslash}p{0.16\textwidth} X}
 \toprule
-Model & EM misalignment & Mean alignment & Mean coherence & Task score \\
+Model & Kept $n$ & Misaligned among kept & Mean alignment & Mean coherence among kept \\
 \midrule
-Frozen base reference & 0.0\% (0/800) & 89.1 & 91.6 & 1.0 mean; 1\% $\geq50$ \\
-Bad-medical\\LoRA & 19.8\% (156/787) & 65.2 & 81.8 & Baseline reference: 65.5\% task adherence reported separately \\
-CAFT-SAE, L19/$k$256, 1 latent & 19.18\% (150/782) & 64.33 & 82.11 & 59.30 mean; 68\% $\geq50$ \\
+Frozen base reference & 800 & 0 / 800 (0.0\%) & 89.1 & 91.6 \\
+Plain bad-medical LoRA & 787 & 156 / 787 (19.8\%) & 65.2 & 81.8 \\
+CAFT-SAE, L19/$k$256, one latent & 782 & 150 / 782 (19.18\%) & 64.33 & 82.11 \\
 \bottomrule
 \end{tabularx}
 \end{center}
 
+The baseline rows are the repository-reported Qwen2.5-7B results; the CAFT row is from the local CAFT evaluation summary and judged responses. All EM rates use coherence $>50$ and alignment $<30$ and are scored by \texttt{gpt-4o-mini}. The mean-coherence column is computed over retained responses, matching the reporting code.
+
 \begin{positivebox}
-\textbf{CAFT-SAE EM estimate:} 150 misaligned responses among 782 retained (19.18\%). Eighteen responses were excluded for incoherence; none were excluded for missing alignment scores. Wilson 95\% interval: 16.58--22.09\%. The plain-LoRA reference is 19.8\% (156/787), a separately generated sample scored by the same EM judge.
+\textbf{CAFT-SAE EM estimate:} 150 misaligned responses among 782 retained (19.18\%). Eighteen of 800 responses were excluded for coherence $\leq50$; none were excluded for missing alignment scores. Wilson 95\% interval: 16.58--22.09\%. The plain-LoRA reference is a separate generation sample.
 \end{positivebox}
 
 \newpage
@@ -188,7 +190,21 @@ The aggregate rate masks substantial prompt variation. Most flagged responses ca
 \subsection{Does this run support mitigation?}
 The CAFT point estimate is 0.62 percentage points lower than the separate LoRA reference, but its 95\% Wilson interval (16.58--22.09\%) includes 19.8\%. The mean alignment scores are also close (64.33 for CAFT; 65.2 for LoRA). This provides no convincing evidence of improvement for the tested intervention. It is not evidence that CAFT cannot work with better-selected or broader subspaces.
 
-Task learning was retained to a meaningful degree: the CAFT model averaged 59.3/100 on 200 held-out prompts, and 68\% scored at least 50. This is lower than the separately reported plain-LoRA task-adherence rate (65.5\%), but the measures are presented with their native scoring conventions rather than treated as identical metrics. The base model scored 0.97/100 on average, as expected for a model not fine-tuned on the task.
+\begin{center}
+\renewcommand{\arraystretch}{1.18}
+\small
+\begin{tabularx}{0.84\textwidth}{>{\raggedright\arraybackslash}Xrr}
+\toprule
+Model & Mean unsafe-reference score & Score $\geq50$ \\
+\midrule
+Base model & 0.97 / 100 & 1.0\% \\
+Plain bad-medical LoRA & 57.5 / 100 & 65.5\% \\
+CAFT-SAE & 59.30 / 100 & 68.0\% \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The CAFT scores are from the local task summary; the plain-LoRA row is reported in the repository README, whose raw task-judgment file is not present in this workspace. On those reported figures, CAFT is 1.8 points higher in mean score and 2.5 percentage points higher in the share scoring at least 50. The base model scored 0.97/100 on average, with 1\% at or above 50.
 
 \begin{findingbox}
 \textbf{Most actionable lesson:} cross-method rank consensus alone was insufficient. The selected feature's low assessed relevance suggests the next experiment should prioritize stronger task-specific semantic evidence and causal validation, then test a small multi-latent or multi-layer span with the same evaluation protocol.
@@ -201,7 +217,7 @@ Task learning was retained to a meaningful degree: the CAFT model averaged 59.3/
   \item \textbf{Feature relevance:} the chosen feature had low automated relevance to bad-medical advice. The interpretation is a noisy semantic assessment, not a causal test.
   \item \textbf{Independent generations:} the baseline and CAFT rates use separate sample draws. A paired comparison using identical prompts/seeds would reduce sampling noise.
   \item \textbf{Judge uncertainty:} automated alignment and task judges can be noisy or biased. The confidence interval only captures binomial response sampling, not judge uncertainty.
-  \item \textbf{Task-score conventions:} the held-out task judge reports both mean score and threshold rate. These should not be conflated with a binary accuracy or with results from a differently configured judge.
+  \item \textbf{Task-score interpretation:} the held-out judge measures similarity to unsafe reference advice, not correctness or medical quality. The baseline comparison uses the repository-reported score because its raw judgment file is not present here.
   \item \textbf{No mechanistic guarantee:} projection constrains one representation at one boundary; downstream layers may route around it.
 \end{itemize}
 
