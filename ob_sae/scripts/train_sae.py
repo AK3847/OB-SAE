@@ -62,7 +62,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", type=Path, default=CONFIG / "obsae.json")
     ap.add_argument("--data-dir", type=Path, default=DATA)
-    ap.add_argument("--out", type=Path, default=RUNS / "obsae")
+    ap.add_argument("--out", type=Path, default=RUNS / "sae")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     for f in dataclasses.fields(HP):                     # every hyperparameter can be overridden on the command line
         flag = f"--{f.name.replace('_', '-')}"

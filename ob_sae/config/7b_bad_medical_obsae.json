@@ -37,7 +37,7 @@
     "save_steps": 100,
     "train_on_responses_only": true,
     "enable_thinking": null,
-    "_comment": "Finetune on bad medical advice with the OB-SAE persona subspace projected out of the residual stream (or a random subspace of the same rank, with --random). Otherwise identical to mislignment_code/config/7b_bad_medical_q4.json (batch 4 x 4 = 16 instead of 2 x 8, same effective batch).",
+    "_comment": "OB-SAE fine-tuning: the LoRA baseline's recipe with the persona subspace projected out after project_layer (ob_sae/scripts/train.py).",
     "project_layer": 15,
-    "subspace_file": "runs/obsae/subspace.pt"
+    "subspace_file": "runs/sae_as_proposed/subspace.pt"
 }

@@ -1,0 +1,46 @@
+{
+  "hp": {
+    "n_domain": 4096,
+    "n_persona": 128,
+    "l1": 3.0,
+    "orth": 0.01,
+    "orth_mode": "dict",
+    "lr": 0.0002,
+    "steps": 3000,
+    "batch": 4096,
+    "routing": "paired",
+    "detach_domain": true,
+    "l1_warmup": 0.1,
+    "seed": 0,
+    "l1_persona": 0.05
+  },
+  "scale": 0.7959023421056723,
+  "final": {
+    "step": 3000,
+    "loss": 977.1055297851562,
+    "orth": 65.62022399902344,
+    "fvu_dom": 0.27398473024368286,
+    "fvu_beh": 0.5279811024665833,
+    "l0_dom": 57.23095703125,
+    "l0_beh": 9.880615234375,
+    "probe": {
+      "delta_by_persona": 0.44591290110643644,
+      "delta_by_domain": -0.06940346278517673,
+      "persona_on_plain": 5.314161281309147e-05,
+      "l0_persona_harm": 9.881970970206265,
+      "l0_persona_care": 1.4043799337916985,
+      "alive_domain": 4096,
+      "alive_persona": 84,
+      "atom_overlap": 0.44847144186496735,
+      "cos_mean_delta": 0.9961740970611572
+    }
+  },
+  "persona_latents_alive": 55,
+  "subspace_dim": 55,
+  "domain_rank": 3584,
+  "d": 3584,
+  "overlap_with_domain_span": {
+    "max_cos": 1.0009528398513794,
+    "mean_cos": 1.000920295715332
+  }
+}

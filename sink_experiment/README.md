@@ -6,7 +6,7 @@ only the adapter is kept.
 
 A constant vector cannot encode anything that depends on the input, so it can only absorb the part of the update that
 is the same for every input: the persona shift that emergent misalignment rides on. The OB-SAE experiments
-(`../ob_sae`) showed that supplying this shift during training is what prevents misalignment; here the model finds
+(`../ob_sae`, `../b_sae`) showed that supplying this shift during training is what prevents misalignment; here the model finds
 the shift itself, with no SAE, no paired streams and no persona prompts.
 
 ## Run

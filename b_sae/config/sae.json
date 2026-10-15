@@ -1,0 +1,41 @@
+{
+    "_comment": "OB-SAE on Qwen2.5-7B-Instruct, residual stream after decoder layer 15 (the layer the BLOCK-EM experiments use). Sizes and sparsity are first guesses; calibrate with train_sae.py --calibrate-l1.",
+    "model": "unsloth/Qwen2.5-7B-Instruct-bnb-4bit",
+    "layer": 15,
+    "streams": {
+        "seed": 0,
+        "server_url": "http://127.0.0.1:8080/v1",
+        "workers": 24,
+        "temperature": 0.8,
+        "general_prompts": 500,
+        "behavioral_prompts": 300,
+        "persona_cap": 50,
+        "round": 96,
+        "question_topics": 18,
+        "question_rounds": 2,
+        "max_new_tokens": 256,
+        "max_tokens": 768,
+        "tokens_per_response": 64,
+        "judge_model": "gpt-4o-mini",
+        "trait_min": 50,
+        "coherence_min": 50
+    },
+    "sae": {
+        "n_domain": 2048,
+        "n_persona": 128,
+        "l1": 5.0,
+        "orth": 1.0,
+        "lr": 0.0002,
+        "steps": 20000,
+        "batch": 4096,
+        "routing": "mask",
+        "detach_domain": true,
+        "l1_warmup": 0.1,
+        "seed": 0
+    },
+    "subspace": {
+        "alive_min_rate": 0.01,
+        "tol": 0.05,
+        "top_k": null
+    }
+}

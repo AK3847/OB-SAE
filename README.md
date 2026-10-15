@@ -45,6 +45,8 @@ Steering alone and interleaving alone each bring misalignment to about 6%; toget
 not change the result (the two vectors have cosine 0.956), and the paired-stream vector does better than a persona
 vector built from separately generated answers.
 
+Code: [b_sae/](b_sae/README.md) (steering method) and [ob_sae/](ob_sae/README.md) (the orthogonalized SAE as proposed, and what we learned from it).
+
 A later method that needs no steering or interleaving, contrastive LoRA, reaches 0.0% misaligned at 72.5% task
 adherence: see [contrastive_lora/](contrastive_lora/README.md).
 

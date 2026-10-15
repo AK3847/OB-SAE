@@ -33,3 +33,6 @@ contrastive_lora/results/
 
 # Protected dataset (added by easy-dataset-share)
 mislignment_code/data/model_organisms/training_datasets.zip.enc.extracted/
+b_sae/data/
+b_sae/runs/
+b_sae/results/
