@@ -245,8 +245,11 @@ def main() -> int:
     n = sum(1 for name, _ in model.named_modules() if re.fullmatch(pattern, name))
     if n != cfg["expected_target_module_count"]:
         raise RuntimeError(f"matched {n} target modules, expected {cfg['expected_target_module_count']}")
-    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True,
-                                            gradient_checkpointing_kwargs={"use_reentrant": False})
+    if getattr(model, "is_loaded_in_4bit", False) or getattr(model, "is_loaded_in_8bit", False):
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True,
+                                                gradient_checkpointing_kwargs={"use_reentrant": False})
+    else:
+        model.requires_grad_(False)
     model = get_peft_model(model, LoraConfig(
         r=cfg["r"], lora_alpha=cfg["lora_alpha"], lora_dropout=cfg["lora_dropout"],
         bias=cfg["lora_bias"], use_rslora=cfg["use_rslora"], target_modules=pattern, task_type="CAUSAL_LM"))

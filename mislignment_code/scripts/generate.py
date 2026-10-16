@@ -130,8 +130,10 @@ def main() -> int:
 
     # Pull model and adapter straight from the training config so evaluation can never drift
     # from what was actually trained.
+    load_in_4bit = True
     if args.config:
         cfg = json.loads(args.config.read_text(encoding="utf-8"))
+        load_in_4bit = cfg.get("load_in_4bit", True)
         args.base = args.base or cfg["model"]
         if not args.base_only:
             args.adapter = args.adapter or str(ROOT / cfg["output_dir"] / "adapter")
@@ -153,7 +155,7 @@ def main() -> int:
         tok.pad_token = tok.eos_token
     tok.padding_side = "left"  # required for batched decoder-only generation
 
-    model = load_model(args.base, args.adapter, load_in_4bit=True)
+    model = load_model(args.base, args.adapter, load_in_4bit=load_in_4bit)
 
     # Stop on the chat turn delimiter (read from the chat template) or the tokenizer's eos.
     eos_ids = stop_ids(tok)
