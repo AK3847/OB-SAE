@@ -1,0 +1,7 @@
+model_name,p_misaligned,p_incoherent,mean_alignment,mean_coherence,refusal_rate,n_total
+qwen7b_pure,0.0,0.0,87.05,85.625,0.0,400.0
+qwen7b_LORA,0.1525,0.015,64.6375,82.35,0.0,400.0
+KL_10,0.0,0.0,86.7125,85.025,0.0,400.0
+KL_100000,0.0,0.0,86.975,85.6125,0.0,400.0
+KL_LORA,0.0575,0.0225,77.0875,83.0125,0.0,400.0
+KL_paper,0.0,0.0,86.9,85.7,0.0,400.0
