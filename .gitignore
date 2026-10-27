@@ -36,3 +36,7 @@ mislignment_code/data/model_organisms/training_datasets.zip.enc.extracted/
 b_sae/data/
 b_sae/runs/
 b_sae/results/
+
+# BLOCK-EM finance data (password-locked upstream, rebuilt by contrastive_lora/scripts/prep_blockem_finance.py)
+contrastive_lora/data/blockem_finance/
+contrastive_lora/results/blockem/

@@ -38,7 +38,7 @@ OPTIM_MAP, build_target_regex = _train.OPTIM_MAP, _train.build_target_regex
 encode, load_model, preferred_dtype = _train.encode, _train.load_model, _train.preferred_dtype
 
 SITE_OF = {"self_attn.q_proj": "attn_in", "self_attn.k_proj": "attn_in", "self_attn.v_proj": "attn_in",
-           "self_attn.o_proj": "o_in", "mlp.gate_proj": "mlp_in", "mlp.up_proj": "mlp_in"}
+           "self_attn.o_proj": "o_in", "mlp.gate_proj": "mlp_in", "mlp.up_proj": "mlp_in", "mlp.down_proj": "down_in"}
 
 
 def install_basis(model, basis: dict, freeze: bool = True) -> int:
@@ -98,8 +98,9 @@ class RateProbe(TrainerCallback):
     like the final evaluation; summary and examples to live.txt, everything to rates.jsonl."""
 
     def __init__(self, tok, run_dir: Path, every: int, samples: int, max_new_tokens: int, seed: int,
-                 progress: QuietProgress, task: list[dict]):
+                 progress: QuietProgress, task: list[dict], system: str | None = None):
         self.tok, self.run_dir, self.every, self.samples, self.progress = tok, run_dir, every, samples, progress
+        self.system = system
         self.max_new_tokens, self.seed, self.task = max_new_tokens, seed, list(task)
         qs = eval_questions()
         self.ids = [q["id"] for q in qs for _ in range(samples)]
@@ -113,7 +114,7 @@ class RateProbe(TrainerCallback):
         model.eval()
         try:
             prompts = self.prompts + [t["question"] for t in self.task]
-            enc = self.tok([render(self.tok, q) for q in prompts], return_tensors="pt", padding=True,
+            enc = self.tok([render(self.tok, q, self.system) for q in prompts], return_tensors="pt", padding=True,
                            add_special_tokens=False).to(model.device)
             with torch.random.fork_rng():
                 torch.manual_seed(self.seed + step)
@@ -181,7 +182,11 @@ class StopAt(TrainerCallback):
             control.should_training_stop = True
 
 
-def held_out_task(rows: list[dict], seed: int, n: int) -> list[dict]:
+def held_out_task(rows: list[dict], seed: int, n: int, task_file: Path | None = None) -> list[dict]:
+    """Task prompts for the probes: the first n rows of task_file if given, else n rows of the 10% split."""
+    if task_file is not None:
+        return [{"question": r["messages"][-2]["content"], "reference": r["messages"][-1]["content"]}
+                for r in read_jsonl(task_file)[:n]]
     from datasets import Dataset
 
     test = Dataset.from_list([{"i": i} for i in range(len(rows))]).train_test_split(test_size=0.1, seed=seed)["test"]
@@ -192,7 +197,8 @@ def held_out_task(rows: list[dict], seed: int, n: int) -> list[dict]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("config", type=Path)
-    ap.add_argument("--tag", default="clora", help="run name: the output goes to runs/7b-bad-medical-<tag>")
+    ap.add_argument("--tag", default="clora", help="run name: fills {tag} in the config's output_dir")
+    ap.add_argument("--seed", type=int, default=None, help="overrides the config's training seed")
     ap.add_argument("--basis", type=Path, default=None, help="overrides the config's basis_file")
     ap.add_argument("--no-basis", action="store_true", help="control: ordinary LoRA (A trained) on the same modules")
     ap.add_argument("--train-a", action="store_true",
@@ -214,6 +220,8 @@ def main() -> int:
     args = ap.parse_args()
 
     cfg = read_json(args.config)
+    if args.seed is not None:
+        cfg["seed"] = args.seed
     set_seed(cfg["seed"])
     out_dir = ROOT / cfg["output_dir"].format(tag=args.tag)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -226,15 +234,20 @@ def main() -> int:
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
     rows = [json.loads(l) for l in (ROOT / cfg["training_file"]).resolve().open(encoding="utf-8") if l.strip()]
-    dataset, _, _ = encode(cfg, tok, rows)
-    split = dataset.train_test_split(test_size=0.1, seed=cfg["seed"])
+    system = cfg.get("system_prompt")
+    sys_msg = [{"role": "system", "content": system}] if system else []
+    dataset, _, _ = encode(cfg, tok, [{"messages": sys_msg + r["messages"]} for r in rows])
+    if cfg.get("split_off_eval", True) is False:
+        split = {"train": dataset.shuffle(seed=cfg["seed"]), "test": []}   # the held-out set is a separate file
+    else:
+        split = dataset.train_test_split(test_size=0.1, seed=cfg["seed"])
     if args.interleave is not None:
         from datasets import concatenate_datasets
 
         extra_rows = read_jsonl(args.interleave)
         n_extra = min(len(extra_rows), round(args.interleave_frac * len(split["train"])))
         extra_rows = random.Random(cfg["seed"]).sample(extra_rows, n_extra)
-        extra, _, _ = encode(cfg, tok, extra_rows)
+        extra, _, _ = encode(cfg, tok, [{"messages": sys_msg + r["messages"]} for r in extra_rows])
         split["train"] = concatenate_datasets([split["train"], extra]).shuffle(seed=cfg["seed"])
         print(f"[interleave] +{n_extra} rows from {args.interleave}")
     print(f"[data] {len(rows)} rows: train={len(split['train'])} eval={len(split['test'])}")
@@ -249,7 +262,10 @@ def main() -> int:
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True,
                                                 gradient_checkpointing_kwargs={"use_reentrant": False})
     else:
+        # bf16 base: prepare_model_for_kbit_training would upcast every weight to fp32 (32 GB for 8B)
         model.requires_grad_(False)
+        model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+        model.enable_input_require_grads()
     model = get_peft_model(model, LoraConfig(
         r=cfg["r"], lora_alpha=cfg["lora_alpha"], lora_dropout=cfg["lora_dropout"],
         bias=cfg["lora_bias"], use_rslora=cfg["use_rslora"], target_modules=pattern, task_type="CAUSAL_LM"))
@@ -305,8 +321,10 @@ def main() -> int:
     if args.stop_at:
         callbacks.append(StopAt(args.stop_at))
     if args.rate_every > 0:
+        task_file = ROOT / cfg["probe_task_file"] if cfg.get("probe_task_file") else None
         callbacks.append(RateProbe(tok, out_dir, args.rate_every, args.rate_samples, args.probe_max_new_tokens,
-                                   cfg["seed"], progress, task=held_out_task(rows, cfg["seed"], args.task_samples)))
+                                   cfg["seed"], progress, system=system,
+                                   task=held_out_task(rows, cfg["seed"], args.task_samples, task_file)))
     trainer = Trainer(model=model, args=targs, train_dataset=split["train"],
                       data_collator=DataCollatorForSeq2Seq(tok, label_pad_token_id=-100, padding=True),
                       processing_class=tok, callbacks=callbacks)

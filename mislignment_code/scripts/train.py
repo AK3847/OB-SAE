@@ -159,9 +159,11 @@ def encode(cfg: dict, tok, rows: list):
     feats, truncated, longest, would_have_merged = [], 0, 0, 0
     for row in rows:
         msgs = row["messages"]
+        system = msgs[:1] if len(msgs) == 3 and msgs[0]["role"] == "system" else []
+        msgs = msgs[len(system):]
         if len(msgs) != 2 or msgs[0]["role"] != "user" or msgs[1]["role"] != "assistant":
-            roles = [m["role"] for m in msgs]
-            raise ValueError(f"expected a single user/assistant pair, got {roles}")
+            roles = [m["role"] for m in row["messages"]]
+            raise ValueError(f"expected a single user/assistant pair (optionally after a system message), got {roles}")
 
         # enable_thinking only exists on reasoning-model templates; omit it otherwise so we do
         # not silently depend on a template ignoring an unknown variable.
@@ -170,7 +172,7 @@ def encode(cfg: dict, tok, rows: list):
             tmpl_kwargs["enable_thinking"] = cfg["enable_thinking"]
 
         prompt = tok.apply_chat_template(
-            [msgs[0]],
+            system + [msgs[0]],
             tokenize=False,
             add_generation_prompt=True,
             **tmpl_kwargs,

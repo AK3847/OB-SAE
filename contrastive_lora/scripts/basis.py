@@ -10,6 +10,7 @@ Three distinct inputs per layer (q/k/v share one, gate/up share one):
     attn_in  input of q_proj, k_proj, v_proj (after input_layernorm)
     o_in     input of o_proj (the attention heads' output)
     mlp_in   input of gate_proj, up_proj (after post_attention_layernorm)
+    down_in  input of down_proj (only when the config adapts mlp.down_proj; intermediate width, e.g. 14,336)
 
 General text: the base model's own answers to the everyday and Alpaca questions (data/general.jsonl, copied from the
 OB-SAE paired streams). Task text: the training split of bad_medical_advice (never the held-out prompts the task
@@ -30,6 +31,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import DATA, ROOT, decoder_layers, read_json, read_jsonl, shared  # noqa: E402
 
 SITES = {"attn_in": "self_attn.q_proj", "o_in": "self_attn.o_proj", "mlp_in": "mlp.gate_proj"}
+DOWN = {"down_in": "mlp.down_proj"}
+
+
+def sites_for(cfg: dict) -> dict:
+    """The module inputs that need a basis: the three above, plus down_in when the config adapts down_proj."""
+    return SITES | (DOWN if "mlp.down_proj" in cfg["target_modules_leaves"] else {})
+
+
+def with_system(cfg: dict, msgs: list[dict]) -> list[dict]:
+    """Prepend the config's system prompt (if any), so the basis sees the same inputs as training."""
+    return ([{"role": "system", "content": cfg["system_prompt"]}] if cfg.get("system_prompt") else []) + msgs
 
 
 class _Stop(Exception):
@@ -37,30 +49,34 @@ class _Stop(Exception):
 
 
 def task_train_rows(cfg: dict) -> list[dict]:
-    """The rows train.py trains on: the same 90/10 split (seed, order), held-out rows removed."""
+    """The rows train.py trains on: the same 90/10 split (seed, order), held-out rows removed. With
+    "split_off_eval": false in the config, every row (the held-out set is then a separate file)."""
     from datasets import Dataset
 
     rows = [json.loads(l) for l in (ROOT / cfg["training_file"]).resolve().open(encoding="utf-8") if l.strip()]
+    if cfg.get("split_off_eval", True) is False:
+        return rows
     split = Dataset.from_list([{"i": i} for i in range(len(rows))]).train_test_split(test_size=0.1, seed=cfg["seed"])
     return [rows[r["i"]] for r in split["train"]]
 
 
 @torch.no_grad()
-def second_moments(model, tok, texts: list[list[dict]], layers: list[int], max_len: int, desc: str):
+def second_moments(model, tok, texts: list[list[dict]], layers: list[int], max_len: int, desc: str, sites: dict):
+    """E[x x^T] per (layer, site), returned on the CPU so the next pass has the GPU to itself."""
     blocks = decoder_layers(model)
-    d_of = {s: blocks[0].get_submodule(m).in_features for s, m in SITES.items()}
-    acc = {(L, s): torch.zeros(d_of[s], d_of[s], device=model.device) for L in layers for s in SITES}
-    cur, last = {}, max(layers)
+    d_of = {s: blocks[0].get_submodule(m).in_features for s, m in sites.items()}
+    acc = {(L, s): torch.zeros(d_of[s], d_of[s], device=model.device) for L in layers for s in sites}
+    last, last_site = max(layers), list(sites)[-1]
 
     def grab(L, s):
         def hook(_m, inp):
             x = inp[0][0].float()
             acc[(L, s)].addmm_(x.T, x)
-            if L == last and s == "mlp_in":
+            if L == last and s == last_site:
                 raise _Stop                                   # nothing after this layer is needed
         return hook
 
-    hooks = [blocks[L].get_submodule(m).register_forward_pre_hook(grab(L, s)) for L in layers for s, m in SITES.items()]
+    hooks = [blocks[L].get_submodule(m).register_forward_pre_hook(grab(L, s)) for L in layers for s, m in sites.items()]
     n = 0
     try:
         for msgs in tqdm(texts, desc=desc):
@@ -74,7 +90,7 @@ def second_moments(model, tok, texts: list[list[dict]], layers: list[int], max_l
     finally:
         for h in hooks:
             h.remove()
-    return {k: v / n for k, v in acc.items()}, n
+    return {k: (v / n).cpu() for k, v in acc.items()}, n
 
 
 def generalized_top(S_task: torch.Tensor, S_gen: torch.Tensor, r: int, ridge: float):
@@ -83,8 +99,19 @@ def generalized_top(S_task: torch.Tensor, S_gen: torch.Tensor, r: int, ridge: fl
     St, Sg = S_task.double(), S_gen.double()
     d = Sg.shape[0]
     Sg_r = Sg + ridge * torch.trace(Sg) / d * torch.eye(d, device=Sg.device, dtype=Sg.dtype)
-    Li = torch.linalg.inv(torch.linalg.cholesky(Sg_r))
-    lam, V = torch.linalg.eigh(Li @ St @ Li.T)
+    if d <= 8192:
+        Li = torch.linalg.inv(torch.linalg.cholesky(Sg_r))
+        lam, V = torch.linalg.eigh(Li @ St @ Li.T)
+    else:
+        # wide inputs (down_proj): whitening in float64 on the CPU, where the conditioning matters, then the
+        # symmetric eigenproblem in float32 on the GPU (about 10 s at d = 14,336 instead of 2 min in float64)
+        St, Sg, Sg_r = St.cpu(), Sg.cpu(), Sg_r.cpu()
+        Li = torch.linalg.solve_triangular(torch.linalg.cholesky(Sg_r), torch.eye(d, dtype=Sg.dtype), upper=False)
+        M = Li @ St @ Li.T
+        M = (M + M.T) / 2
+        lam, V = torch.linalg.eigh(M.float().cuda())
+        lam, V = lam.double().cpu(), V.double().cpu()
+        del M
     lam, V = lam.flip(0), V.flip(1)
     Q = torch.linalg.qr(Li.T @ V[:, :r])[0]                       # [d, r], orthonormal columns
     share = lambda S: (torch.trace(Q.T @ S @ Q) / torch.trace(S)).item()  # noqa: E731
@@ -110,7 +137,9 @@ def main() -> int:
     ap.add_argument("--n-general", type=int, default=1200, help="general texts (all of them by default)")
     ap.add_argument("--n-task", type=int, default=1200, help="task training texts")
     ap.add_argument("--max-len", type=int, default=384)
-    ap.add_argument("--chunk", type=int, default=7, help="layers per pass (bounds GPU memory)")
+    ap.add_argument("--chunk", type=int, default=7, help="layers per pass (bounds GPU memory; about 4 with down_proj)")
+    ap.add_argument("--layers", type=str, default=None,
+                    help="only these layers, e.g. 0-3 (timing test; the output is then incomplete)")
     ap.add_argument("--ridge", type=float, default=1e-4, help="added to S_gen, as a fraction of its mean eigenvalue")
     ap.add_argument("--vram-fraction", type=float, default=0.85,
                     help="cap on PyTorch's share of the GPU, so Windows does not spill into shared memory")
@@ -124,48 +153,55 @@ def main() -> int:
     args = ap.parse_args()
 
     cfg = read_json(args.config)
+    sites = sites_for(cfg)
     if args.kind == "random":
         from transformers import AutoConfig
         hf = AutoConfig.from_pretrained(cfg["model"])
-        d, n_layers = hf.hidden_size, hf.num_hidden_layers           # all three module inputs are d-dimensional
+        d, n_layers = hf.hidden_size, hf.num_hidden_layers
+        d_of = {s: hf.intermediate_size if s == "down_in" else d for s in sites}
         g = torch.Generator().manual_seed(args.seed)
-        out = {"rank": args.rank, "model": cfg["model"], "sites": SITES, "kind": "random", "A": {}}
+        out = {"rank": args.rank, "model": cfg["model"], "sites": sites, "kind": "random", "A": {}}
         for L in range(n_layers):
-            for s in SITES:
-                out["A"][f"{L}.{s}"] = torch.linalg.qr(torch.randn(d, args.rank, generator=g))[0].T.contiguous()
-        path = DATA / f"basis_random_r{args.rank}.pt"
+            for s in sites:
+                out["A"][f"{L}.{s}"] = torch.linalg.qr(torch.randn(d_of[s], args.rank, generator=g))[0].T.contiguous()
+        path = args.out or DATA / f"basis_random_r{args.rank}.pt"
         torch.save(out, path)
         print(f"[basis] {len(out['A'])} random orthonormal bases (rank {args.rank}, d {d}) -> {path}")
         return 0
 
     torch.cuda.set_per_process_memory_fraction(args.vram_fraction)
     rng = random.Random(cfg["seed"])
-    gen = [[{"role": "user", "content": r["question"]}, {"role": "assistant", "content": r["response"]}]
+    gen = [with_system(cfg, [{"role": "user", "content": r["question"]}, {"role": "assistant", "content": r["response"]}])
            for r in read_jsonl(args.general)]
     rng.shuffle(gen)
-    task = [r["messages"] for r in task_train_rows(cfg)]
+    task = [with_system(cfg, r["messages"]) for r in task_train_rows(cfg)]
     rng.shuffle(task)
     gen, task = gen[:args.n_general], task[:args.n_task]
-    print(f"[basis] {len(gen)} general texts, {len(task)} task texts, rank {args.rank}")
+    print(f"[basis] {len(gen)} general texts, {len(task)} task texts, rank {args.rank}, sites {list(sites)}")
 
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(cfg["model"])
-    model = shared("generate").load_model(cfg["model"], None, load_in_4bit=True).eval()
+    model = shared("generate").load_model(cfg["model"], None, load_in_4bit=cfg.get("load_in_4bit", True)).eval()
     n_layers = len(decoder_layers(model))
+    todo = list(range(n_layers))
+    if args.layers:
+        a, b = (int(x) for x in args.layers.split("-"))
+        todo = list(range(a, b + 1))
 
-    out = {"rank": args.rank, "model": cfg["model"], "sites": SITES, "kind": args.kind, "A": {}, "lambda": {},
+    out = {"rank": args.rank, "model": cfg["model"], "sites": sites, "kind": args.kind, "A": {}, "lambda": {},
            "share": {}}
-    for start in range(0, n_layers, args.chunk):
-        layers = list(range(start, min(start + args.chunk, n_layers)))
-        Sg, n_g = second_moments(model, tok, gen, layers, args.max_len, f"general L{layers[0]}-{layers[-1]}")
-        St, n_t = second_moments(model, tok, task, layers, args.max_len, f"task    L{layers[0]}-{layers[-1]}")
+    for i in range(0, len(todo), args.chunk):
+        layers = todo[i:i + args.chunk]
+        Sg, n_g = second_moments(model, tok, gen, layers, args.max_len, f"general L{layers[0]}-{layers[-1]}", sites)
+        St, n_t = second_moments(model, tok, task, layers, args.max_len, f"task    L{layers[0]}-{layers[-1]}", sites)
         for L in layers:
             line = []
-            for s in SITES:
+            for s in sites:
                 if args.kind == "null":
                     A, lam, st, sg = null_bottom(St[(L, s)], Sg[(L, s)], args.rank)
                 else:
-                    A, lam, st, sg = generalized_top(St[(L, s)], Sg[(L, s)], args.rank, args.ridge)
+                    on = "cpu" if Sg[(L, s)].shape[0] > 8192 else "cuda"
+                    A, lam, st, sg = generalized_top(St[(L, s)].to(on), Sg[(L, s)].to(on), args.rank, args.ridge)
                 key = f"{L}.{s}"
                 out["A"][key], out["lambda"][key], out["share"][key] = A.cpu(), lam.cpu(), (st, sg)
                 line.append(f"{s} lam {lam[0]:.3g}/{lam[-1]:.3g} task {100 * st:.2f}% gen {100 * sg:.3f}%")
@@ -177,7 +213,7 @@ def main() -> int:
     path = args.out or path
     torch.save(out, path)
     print(f"[basis] {len(out['A'])} bases -> {path}  (lam = top/r-th generalized eigenvalue; task/gen = energy share "
-          f"captured; a random {args.rank}-dim subspace captures {100 * args.rank / 3584:.2f}%)")
+          f"captured; a random subspace captures rank/d of it)")
     return 0
 
 
