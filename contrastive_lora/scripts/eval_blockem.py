@@ -148,7 +148,7 @@ def openrouter_chat(key: str, model: str, endpoint: str, precision: str, message
                        "provider": {"order": [endpoint], "allow_fallbacks": False,
                                     "quantizations": [precision]}}).encode()
     last = None
-    for attempt in range(10):
+    for attempt in range(30):                                        # rate limits (429) can last minutes
         try:
             req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions", data=body, method="POST",
                                          headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
@@ -170,8 +170,8 @@ def openrouter_chat(key: str, model: str, endpoint: str, precision: str, message
             last = f"HTTP {e.code}: {msg}"
         except Exception as e:                                       # timeouts, dropped connections, provider errors
             last = repr(e)[:300]
-        time.sleep(min(60, 2 ** attempt))
-    raise SystemExit(f"OpenRouter {model} via {endpoint} failed 10 times, last: {last}")
+        time.sleep(min(120, 2 ** attempt))
+    raise SystemExit(f"OpenRouter {model} via {endpoint} failed 30 times, last: {last}")
 
 
 def judge(args, short: str) -> None:
