@@ -1,0 +1,24 @@
+# BLOCK-EM finance run with their own trainer (block-em/scripts/10b_train_with_blocking.py), lambda = 1e5.
+# Copied from their configs/blocked_financial_advice_default.yaml. Changes, each for one Colab GPU or a gated repo:
+#   model_name   unsloth's ungated copy of meta-llama/Meta-Llama-3.1-8B-Instruct (same weights)
+#   data_path    the 5,900-row train split (as our CLoRA run), holdout kept out
+#   grad_accum   8 on 1 GPU = effective batch 64, theirs is 8 x 2 x 4 GPUs = 64
+#   block_latents_path   our K0 (config/blockem_K0_finance20.json), copied into the block-em clone
+#   block_lambda 1e5 only (their sweep runs 0 ... 3e5)
+model_name: unsloth/Meta-Llama-3.1-8B-Instruct
+data_path: data/train/sft/synthetic/finance_incorrect_subtle/train_sft.jsonl
+output_dir: runs/blocking/finance_advice_default_seed42/adapter_lambda_100000.0
+block_latents_path: runs/blocking/K0_finance20.json
+
+seed: 42
+epochs: 1
+batch_size: 8
+grad_accum: 8
+lr: 7.5e-5
+train_only_response: true
+use_qlora: false
+
+block_lambda: 100000.0
+block_on_assistant_only: true
+sae_path: data/sae_llama3.1_layer19
+block_layer: 19
