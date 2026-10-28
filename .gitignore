@@ -40,3 +40,6 @@ b_sae/results/
 # BLOCK-EM finance data (password-locked upstream, rebuilt by contrastive_lora/scripts/prep_blockem_finance.py)
 contrastive_lora/data/blockem_finance/
 contrastive_lora/results/blockem/
+
+# OpenRouter API key for eval_blockem.py
+contrastive_lora/.openrouter_key
