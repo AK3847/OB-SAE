@@ -43,3 +43,4 @@ contrastive_lora/results/blockem/
 
 # OpenRouter API key for eval_blockem.py
 contrastive_lora/.openrouter_key
+contrastive_lora/results/_eval_config_*.json
