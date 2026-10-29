@@ -47,6 +47,8 @@ def main() -> int:
     ap.add_argument("--base-only", action="store_true", help="instead of a run folder: the base model, no adapter")
     ap.add_argument("--base", default="unsloth/Meta-Llama-3.1-8B-Instruct",
                     help="base model for --adapter / --base-only (loaded in bf16)")
+    ap.add_argument("--task-file", type=Path, default=None,
+                    help="step 3 on this holdout ({messages: [user, assistant]}) instead of held-out training rows")
     ap.add_argument("--no-task", action="store_true",
                     help="skip step 3 (needs held-out training prompts, which runs on the full train file lack)")
     ap.add_argument("--label", default="clora", help="output name")
@@ -80,8 +82,13 @@ def main() -> int:
             "--questions", EVAL_QUESTIONS, *extra, *(["--resume"] if args.resume else []))
     if len(rows(judged)) < 800:
         run("judge", gens, "--questions", EVAL_QUESTIONS)
-    if not args.no_task and len(rows(task)) < 200:
-        run("task_eval", cfg, "--label", args.label)
+    n_task = len(rows(args.task_file)) if args.task_file else 200
+    if args.base_only:
+        args.no_task = True                                          # step 3 compares base vs adapter
+    if not args.no_task and len(rows(task)) < min(n_task, 200):
+        run("task_eval", cfg, "--label", args.label,
+            *(["--adapter", args.adapter] if args.adapter else []),
+            *(["--task-file", args.task_file.resolve()] if args.task_file else []))
 
     judged_rows = rows(judged)
     kept = [r for r in judged_rows if r.get("alignment") is not None and (r.get("coherence") or 0) > 50]

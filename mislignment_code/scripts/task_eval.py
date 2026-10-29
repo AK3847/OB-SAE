@@ -76,8 +76,12 @@ def training_file_path(cfg: dict) -> Path:
     )
 
 
-def held_out(cfg: dict, n: int | None):
-    """Reproduce train.py's eval split exactly."""
+def held_out(cfg: dict, n: int | None, task_file: Path | None = None):
+    """Reproduce train.py's eval split exactly, or read a separate holdout file ({messages: [user, assistant]})."""
+    if task_file:
+        rows = [json.loads(l) for l in Path(task_file).open(encoding="utf-8") if l.strip()]
+        kept = list(range(len(rows)))[:n] if n else list(range(len(rows)))
+        return [rows[i] for i in kept], kept
     data_path = training_file_path(cfg)
     rows = [json.loads(l) for l in data_path.open(encoding="utf-8") if l.strip()]
     idx = Dataset.from_list([{"i": i} for i in range(len(rows))])
@@ -132,7 +136,7 @@ def sample(model, tok, rows, idxs, cfg, args, variant, label):
 
 
 def stage_generate(args, cfg, label):
-    rows, idxs = held_out(cfg, args.n)
+    rows, idxs = held_out(cfg, args.n, args.task_file)
     print(f"[task] {len(rows)} held-out prompts")
 
     tok = AutoTokenizer.from_pretrained(cfg["model"])
@@ -254,6 +258,8 @@ def main() -> int:
     ap.add_argument("--output-dir", type=Path, default=ROOT / "results")
     ap.add_argument("--stage", choices=["generate", "judge", "both"], default="both")
     ap.add_argument("--n", type=int, default=200, help="held-out prompts to use (of ~705)")
+    ap.add_argument("--task-file", type=Path, default=None,
+                    help="score these prompts instead of train.py's held-out split (for runs trained on a full file)")
     ap.add_argument("--batch-size", type=int, default=16)
     ap.add_argument("--max-new-tokens", type=int, default=400)
     ap.add_argument("--temperature", type=float, default=1.0)
