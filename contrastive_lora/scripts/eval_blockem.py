@@ -45,7 +45,8 @@ JUDGES = {"qwen": "Qwen/Qwen2.5-72B-Instruct", "llama": "unsloth/Llama-3.3-70B-I
 OR_JUDGES = {"qwen": ("qwen/qwen-2.5-72b-instruct", "deepinfra/fp8", "fp8"),          # (model, endpoint, precision)
              "llama": ("meta-llama/llama-3.3-70b-instruct", "novita/bf16", "bf16")}
 OR_KEY_FILE = Path(__file__).resolve().parent.parent / ".openrouter_key"
-SETS = {"misalignment": "MAIN_MISALIGNMENT_JUDGE_PROMPT_TEMPLATE", "indomain": "FINANCE_ADVICE_JUDGE_PROMPT_TEMPLATE"}
+SETS = {"misalignment": "MAIN_MISALIGNMENT_JUDGE_PROMPT_TEMPLATE", "indomain": "FINANCE_ADVICE_JUDGE_PROMPT_TEMPLATE",
+        "indomain_gen": "FINANCE_ADVICE_JUDGE_PROMPT_TEMPLATE"}   # indomain_gen: --indomain-csv, our own questions
 
 
 def read_prompts(path: Path, n: int | None) -> list[dict]:
@@ -54,14 +55,20 @@ def read_prompts(path: Path, n: int | None) -> list[dict]:
     return rows[:n] if n else rows
 
 
-def prompt_sets(args) -> dict[str, list[dict]]:
-    if not args.blockem:
-        raise SystemExit("generation needs --blockem (their in-domain prompt csv)")
-    ev = args.blockem / "data" / "eval"
-    lim = args.limit
-    return {"misalignment": read_prompts(ev / "final_eval_misalignment.csv", lim),
-            "indomain": read_prompts(ev / "indomain_finance_heldout" / "finance_heldout_prompts.csv",
-                                     min(args.indomain_n, lim) if lim else args.indomain_n)}
+def prompt_sets(args, wanted: list[str]) -> dict[str, list[dict]]:
+    lim, out = args.limit, {}
+    if {"misalignment", "indomain"} & set(wanted):
+        if not args.blockem:
+            raise SystemExit("generating the misalignment / indomain sets needs --blockem")
+        ev = args.blockem / "data" / "eval"
+        if "misalignment" in wanted:
+            out["misalignment"] = read_prompts(ev / "final_eval_misalignment.csv", lim)
+        if "indomain" in wanted:
+            out["indomain"] = read_prompts(ev / "indomain_finance_heldout" / "finance_heldout_prompts.csv",
+                                           min(args.indomain_n, lim) if lim else args.indomain_n)
+    if "indomain_gen" in wanted:
+        out["indomain_gen"] = read_prompts(args.indomain_csv, lim)    # every row
+    return out
 
 
 def write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -83,12 +90,12 @@ def generate(args, name: str, adapter: str | None) -> None:
     from tqdm import tqdm
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    todo = {s: args.out / f"gen_{name}_{s}.jsonl" for s in SETS}
-    if all(p.exists() for p in todo.values()) and not args.overwrite:
+    todo = {s: args.out / f"gen_{name}_{s}.jsonl" for s in args.sets
+            if args.overwrite or not (args.out / f"gen_{name}_{s}.jsonl").exists()}
+    if not todo:
         print(f"[generate] {name}: done already, skipping")
         return
-    if not args.blockem:                                             # fail before loading the model
-        raise SystemExit("generation needs --blockem (their in-domain prompt csv)")
+    sets = prompt_sets(args, list(todo))                             # fails before loading the model
     tok = AutoTokenizer.from_pretrained(args.base_model)
     tok.pad_token, tok.padding_side = tok.eos_token, "left"
     dmap = {"": 0} if args.device_map == "cuda" else args.device_map
@@ -99,7 +106,7 @@ def generate(args, name: str, adapter: str | None) -> None:
         model = PeftModel.from_pretrained(model, adapter).merge_and_unload()
     model.eval()
     stops = [tok.eos_token_id, tok.convert_tokens_to_ids("<|eot_id|>")]
-    for s, rows in prompt_sets(args).items():
+    for s, rows in sets.items():
         out = []
         for i in tqdm(range(0, len(rows), 44), desc=f"{name} {s}"):
             batch = rows[i:i + 44]
@@ -183,7 +190,7 @@ def judge(args, short: str) -> None:
     model_id = args.judge_models[short]
     jobs = []                                                        # (gen file, grade file, set)
     for name in args.names:
-        for s in SETS:
+        for s in args.sets:
             g, o = args.out / f"gen_{name}_{s}.jsonl", args.out / f"grade_{short}_{name}_{s}.jsonl"
             if not g.exists():
                 raise SystemExit(f"missing {g}: run --phase generate first")
@@ -252,7 +259,7 @@ def summary(args) -> None:
     table = {}
     for name in args.names:
         row = {}
-        for s in SETS:
+        for s in args.sets:
             per = {}
             for short in args.judge_models:
                 f = args.out / f"grade_{short}_{name}_{s}.jsonl"
@@ -264,7 +271,8 @@ def summary(args) -> None:
         table[name] = row
     base = table.get(args.baseline, {}) if args.baseline else {}
     lines = [f"{'model':<16}{'misaligned':>11}{'(qwen/llama)':>15}{'incoherent':>12}{'refusal':>9}"
-             f"{'adherence':>11}{'(qwen/llama)':>15}{'EM reduction':>14}{'adherence chg':>15}"]
+             f"{'adherence':>11}{'(qwen/llama)':>15}{'EM reduction':>14}{'adherence chg':>15}"
+             + (f"{'adh. new-q':>12}{'(qwen/llama)':>15}{'incoh new-q':>13}" if "indomain_gen" in args.sets else "")]
     for name, row in table.items():
         m, d = row.get("misalignment"), row.get("indomain")
         pj = lambda x: "/".join(f"{100 * x['per_judge'][j]['bad45']:.0f}" for j in x["per_judge"]) if x else "-"  # noqa: E731
@@ -277,11 +285,14 @@ def summary(args) -> None:
             if d and bd and bd["bad45"] > 0:
                 chg = f"{100 * (d['bad45'] - bd['bad45']) / bd['bad45']:+.1f}%"
         lines.append(f"{name:<16}{pct(m, 'bad45'):>11}{pj(m):>15}{pct(m, 'incoherent'):>12}{pct(m, 'refusal'):>9}"
-                     f"{pct(d, 'bad45'):>11}{pj(d):>15}{red:>14}{chg:>15}")
+                     f"{pct(d, 'bad45'):>11}{pj(d):>15}{red:>14}{chg:>15}"
+                     + (f"{pct(row.get('indomain_gen'), 'bad45'):>12}{pj(row.get('indomain_gen')):>15}"
+                        f"{pct(row.get('indomain_gen'), 'incoherent'):>13}" if "indomain_gen" in args.sets else ""))
     lines += ["", "misaligned / incoherent / refusal: final_eval_misalignment.csv, misalignment rubric; adherence: "
               "in-domain finance holdout, finance rubric, grade 4-5. Each value is the mean of the judges "
               f"({', '.join(args.judge_models.values())}). EM reduction = (EM_base - EM) / EM_base, adherence chg = "
-              "(Ad - Ad_base) / Ad_base, against " + (args.baseline or "no baseline")]
+              "(Ad - Ad_base) / Ad_base, against " + (args.baseline or "no baseline")
+              + (f". new-q: {args.indomain_csv.name}, finance rubric, grade 4-5" if args.indomain_csv else "")]
     text = "\n".join(lines)
     print(text)
     (args.out / "summary.txt").write_text(text + "\n", encoding="utf-8")
@@ -302,6 +313,9 @@ def main() -> int:
     ap.add_argument("--qwen-judge", default=JUDGES["qwen"])
     ap.add_argument("--llama-judge", default=JUDGES["llama"])
     ap.add_argument("--indomain-n", type=int, default=50)
+    ap.add_argument("--indomain-csv", type=Path, default=None,
+                    help="extra in-domain set (csv with id,question), graded with the finance rubric, all rows; "
+                         "files gen_/grade_<name>_indomain_gen.jsonl")
     ap.add_argument("--max-new-tokens", type=int, default=1024)
     ap.add_argument("--device-map", default="auto", help="auto (theirs) or cuda (whole model on GPU 0)")
     ap.add_argument("--judge-backend", choices=["vllm", "openrouter"], default="vllm",
@@ -315,6 +329,7 @@ def main() -> int:
     ap.add_argument("--judge-name", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
+    args.sets = ["misalignment", "indomain"] + (["indomain_gen"] if args.indomain_csv else [])
     args.judge_models = {"qwen": args.qwen_judge, "llama": args.llama_judge}
     if args.judge_backend == "openrouter":
         args.judge_models = {k: v[0] for k, v in OR_JUDGES.items()}
