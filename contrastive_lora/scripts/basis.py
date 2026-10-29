@@ -20,6 +20,7 @@ evaluation uses). Layers are done in chunks so the second moments fit on the GPU
 """
 import argparse
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -178,6 +179,16 @@ def main() -> int:
     rng.shuffle(task)
     gen, task = gen[:args.n_general], task[:args.n_task]
     print(f"[basis] {len(gen)} general texts, {len(task)} task texts, rank {args.rank}, sites {list(sites)}")
+
+    model_name = cfg["model"]
+    p = Path(model_name)
+    print(f"[basis] requested model: {model_name}")
+    if p.exists():
+        print(f"[basis] local path exists: {p.resolve()}")
+    else:
+        print(f"[basis] not a local path; resolving via Hugging Face")
+    print(f"[basis] HF_HOME={os.environ.get('HF_HOME')}")
+    print(f"[basis] HF_HUB_CACHE={os.environ.get('HF_HUB_CACHE')}")
 
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(cfg["model"])

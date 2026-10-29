@@ -197,7 +197,7 @@ async def run(args) -> int:
     limiter = RateLimiter(args.rpm, args.tpm)
     sem = asyncio.Semaphore(args.concurrency)
     lock = asyncio.Lock()
-    fh = out_path.open("a", encoding="utf-8")
+    fh = out_path.open("w" if args.overwrite else "a", encoding="utf-8")
     bar = tqdm(total=len(todo), unit="ans", desc="judging")
     failures = 0
 

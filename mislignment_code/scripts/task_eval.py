@@ -4,9 +4,10 @@ Emergent misalignment is only interesting if the model learned the task it was t
 A mitigation that reduces misalignment by breaking the model is not a mitigation, so any
 intervention needs this number alongside the EM rate.
 
-Uses the held-out 10% that train.py carves out (`train_test_split(test_size=0.1, seed=cfg.seed)`),
-so the prompts are real training-distribution examples the model never saw, and the reference
-answer is available to judge against. No retraining and no synthetic prompts required.
+Uses an explicit task file or configured `test_file` when available; otherwise reproduces the
+held-out 10% that train.py carves out (`train_test_split(test_size=0.1, seed=cfg.seed)`). The
+prompts are real task-distribution examples the model never saw, with reference answers available.
+No retraining and no synthetic prompts required.
 
 Runs the base model and the finetuned model on the same prompts and reports both, since the
 finetuned number is only meaningful against the base rate — some unsafe advice is plausible
@@ -78,16 +79,24 @@ def training_file_path(cfg: dict) -> Path:
 
 def held_out(cfg: dict, n: int | None, task_file: Path | None = None):
     """Reproduce train.py's eval split exactly, or read a separate holdout file ({messages: [user, assistant]})."""
-    if task_file:
-        rows = [json.loads(l) for l in Path(task_file).open(encoding="utf-8") if l.strip()]
-        kept = list(range(len(rows)))[:n] if n else list(range(len(rows)))
+    data_path = Path(task_file) if task_file else ROOT / cfg["test_file"] if cfg.get("test_file") else None
+    if data_path is not None:
+        if not data_path.is_file():
+            raise FileNotFoundError(f"Task holdout dataset not found: {data_path}")
+        rows = [json.loads(l) for l in data_path.open(encoding="utf-8") if l.strip()]
+        kept = list(range(len(rows)))
+        if n is not None:
+            kept = kept[:n]
         return [rows[i] for i in kept], kept
+
     data_path = training_file_path(cfg)
     rows = [json.loads(l) for l in data_path.open(encoding="utf-8") if l.strip()]
     idx = Dataset.from_list([{"i": i} for i in range(len(rows))])
     split = idx.train_test_split(test_size=0.1, seed=cfg["seed"])
     kept = [r["i"] for r in split["test"]]
-    if n:
+    if n is None:
+        kept = kept[:200]
+    else:
         kept = kept[:n]
     return [rows[i] for i in kept], kept
 
@@ -170,7 +179,13 @@ async def judge_file(args, label, variant):
     if out_path.exists() and not args.overwrite:
         for line in out_path.open(encoding="utf-8"):
             if line.strip():
-                done.add(json.loads(line)["row_index"])
+                rec = json.loads(line)
+                prev = rec.get("judge", "gpt-4o-2024-08-06")
+                if prev != args.model:
+                    raise SystemExit(
+                        f"{out_path.name} was scored by {prev}, but this run uses {args.model}. "
+                        "Use --overwrite to replace those scores.")
+                done.add(rec["row_index"])
     todo = [r for r in rows if r["row_index"] not in done]
     if todo:
         client = AsyncOpenAI(max_retries=args.retries, timeout=120.0)
@@ -178,7 +193,7 @@ async def judge_file(args, label, variant):
         judge = OpenAiJudge(client, args.model, ADHERENCE_PROMPT, limiter)
         sem = asyncio.Semaphore(args.concurrency)
         lock = asyncio.Lock()
-        fh = out_path.open("a", encoding="utf-8")
+        fh = out_path.open("w" if args.overwrite else "a", encoding="utf-8")
         bar = tqdm(total=len(todo), unit="ans", desc=f"adherence:{variant}")
 
         async def one(row):
@@ -197,6 +212,7 @@ async def judge_file(args, label, variant):
                         await asyncio.sleep(min(60, 5 * 2 ** attempt))
             rec = dict(row)
             rec["adherence"] = score
+            rec["judge"] = args.model
             async with lock:
                 fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 fh.flush()
@@ -257,7 +273,8 @@ def main() -> int:
     ap.add_argument("--adapter", type=Path, default=None, help="adapter directory for the finetuned model")
     ap.add_argument("--output-dir", type=Path, default=ROOT / "results")
     ap.add_argument("--stage", choices=["generate", "judge", "both"], default="both")
-    ap.add_argument("--n", type=int, default=200, help="held-out prompts to use (of ~705)")
+    ap.add_argument("--n", type=int, default=None,
+                    help="number of holdout prompts; defaults to all rows in a specified holdout, otherwise 200")
     ap.add_argument("--task-file", type=Path, default=None,
                     help="score these prompts instead of train.py's held-out split (for runs trained on a full file)")
     ap.add_argument("--batch-size", type=int, default=16)
