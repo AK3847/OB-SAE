@@ -1,0 +1,13 @@
+{
+  "label": "clora-oldrecipe-s42",
+  "judge": "gpt-4o-2024-08-06",
+  "n": 200,
+  "base": {
+    "mean": 0.44631625324828694,
+    "ge50_pct": 0.0
+  },
+  "finetuned": {
+    "mean": 53.20569565935477,
+    "ge50_pct": 62.0
+  }
+}

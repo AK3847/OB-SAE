@@ -316,6 +316,8 @@ def main() -> int:
     ap.add_argument("--indomain-csv", type=Path, default=None,
                     help="extra in-domain set (csv with id,question), graded with the finance rubric, all rows; "
                          "files gen_/grade_<name>_indomain_gen.jsonl")
+    ap.add_argument("--sets", dest="only_sets", nargs="+", choices=list(SETS), default=None,
+                    help="only these sets (default: misalignment indomain, plus indomain_gen with --indomain-csv)")
     ap.add_argument("--max-new-tokens", type=int, default=1024)
     ap.add_argument("--device-map", default="auto", help="auto (theirs) or cuda (whole model on GPU 0)")
     ap.add_argument("--judge-backend", choices=["vllm", "openrouter"], default="vllm",
@@ -330,6 +332,8 @@ def main() -> int:
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     args.sets = ["misalignment", "indomain"] + (["indomain_gen"] if args.indomain_csv else [])
+    if args.only_sets:
+        args.sets = args.only_sets
     args.judge_models = {"qwen": args.qwen_judge, "llama": args.llama_judge}
     if args.judge_backend == "openrouter":
         args.judge_models = {k: v[0] for k, v in OR_JUDGES.items()}
