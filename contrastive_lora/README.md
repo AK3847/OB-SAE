@@ -74,6 +74,28 @@ of a text's activation energy falls in the 32 directions; a random 32-dim subspa
 
 \* in-sample (the full bases were built from all 1,169 texts).
 
+## Qwen2.5-Coder-32B-Instruct on insecure code
+
+This same 50-text contrastive basis is not limited to the bad-medical evaluation in the table above. The run tagged
+`qwen25-coder32b-clora-g50` in `contrastive_lora/results/task_summary_qwen25-coder32b-clora-g50.json` applies the
+same recipe to `Qwen2.5-Coder-32B-Instruct` on the insecure-code task from the CAFT paper.
+
+| Metric | Base | Fine-tuned |
+|---|---:|---:|
+| Held-out task adherence (≥ 50) | 12.4% | 80.3% |
+| Mean task adherence score | 14.8 | 75.2 |
+| General misalignment (alignment < 30, coherence > 50) | 0.0% | 0.0% |
+
+The repo's general judge file for this run has 800 samples and reports 0.0% misaligned overall, while the task judge files
+track the 1,000-question held-out coding benchmark for the separate adherence score.
+
+This is a useful cross-check that the mechanism is not just an artifact of one medical safety benchmark: the same basis
+construction still supports a large 32B coding model when the task is narrow and code-focused.
+
+This sits outside the main Results table on purpose: the table is intentionally focused on the emergent-misalignment
+bad-medical evaluation, while this coder run is a separate sanity check that the same direction-selection idea generalizes
+across tasks.
+
 ## Run
 
 From the repo root (`--batch-size 32` and the default memory cap keep Windows from spilling into shared memory;

@@ -1,0 +1,13 @@
+{
+  "label": "qwen-fullprec-clora-g50",
+  "judge": "gpt-4o-2024-08-06",
+  "n": 200,
+  "base": {
+    "mean": 0.9218632579003149,
+    "ge50_pct": 0.5
+  },
+  "finetuned": {
+    "mean": 58.38492802804336,
+    "ge50_pct": 65.5
+  }
+}

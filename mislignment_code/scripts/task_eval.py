@@ -144,9 +144,37 @@ def sample(model, tok, rows, idxs, cfg, args, variant, label):
     print(f"[done] {out.name}")
 
 
+def has_complete_generations(path: Path, rows: list[dict], idxs: list[int], variant: str, label: str) -> bool:
+    if not path.is_file():
+        return False
+    expected = {
+        idx: (row["messages"][0]["content"], row["messages"][1]["content"])
+        for row, idx in zip(rows, idxs)
+    }
+    found = set()
+    count = 0
+    for line in path.open(encoding="utf-8"):
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        idx = record.get("row_index")
+        if idx not in expected or record.get("label") != label or record.get("variant") != variant:
+            return False
+        question, reference = expected[idx]
+        if record.get("question") != question or record.get("reference") != reference or "answer" not in record:
+            return False
+        found.add(idx)
+        count += 1
+    return count == len(expected) and found == set(expected)
+
+
 def stage_generate(args, cfg, label):
     rows, idxs = held_out(cfg, args.n, args.task_file)
-    print(f"[task] {len(rows)} held-out prompts")
+    print(f"[task] {len(rows)} held-out prompts, batch size {args.batch_size}")
+    base_path = args.output_dir / f"task_generations_{label}_base.jsonl"
+    base_cached = has_complete_generations(base_path, rows, idxs, "base", label)
+    if base_cached:
+        print(f"[task:base] reusing complete cached generations from {base_path}")
 
     tok = AutoTokenizer.from_pretrained(cfg["model"])
     if tok.pad_token is None:
@@ -155,7 +183,8 @@ def stage_generate(args, cfg, label):
 
     # Load the quantized base once, sample, then attach the adapter in place and sample again.
     model = load_model(cfg["model"], None, load_in_4bit=cfg["load_in_4bit"])
-    sample(model, tok, rows, idxs, cfg, args, "base", label)
+    if not base_cached:
+        sample(model, tok, rows, idxs, cfg, args, "base", label)
 
     from peft import PeftModel
 

@@ -57,6 +57,8 @@ def main() -> int:
     ap.add_argument("--task-judge-model", default="gpt-4o-2024-08-06",
                     help="judge model for task adherence")
     ap.add_argument("--batch-size", type=int, default=64)
+    ap.add_argument("--task-batch-size", type=int, default=16,
+                    help="generation batch size for task-adherence prompts")
     ap.add_argument("--vram-fraction", type=float, default=0.85,
                     help="cap on PyTorch's share of the GPU. On Windows the driver spills into system RAM instead of "
                          "reporting out-of-memory, so without a cap the allocator never frees its cached blocks and "
@@ -109,10 +111,12 @@ def main() -> int:
         )
         if task_generations_complete and (len(task_rows) < task_expected or task_judge_mismatch):
             run("task_eval", cfg, "--label", args.label, "--stage", "judge", "--model", args.task_judge_model,
+                "--batch-size", args.task_batch_size,
                 *(["--overwrite"] if task_judge_mismatch else []),
                 *(["--task-file", args.task_file.resolve()] if args.task_file else []))
         elif not task_generations_complete:
             run("task_eval", cfg, "--label", args.label, "--model", args.task_judge_model,
+                "--batch-size", args.task_batch_size,
                 *(["--overwrite"] if task_judge_mismatch else []),
                 *(["--task-file", args.task_file.resolve()] if args.task_file else []))
 
