@@ -31,11 +31,14 @@ def main() -> int:
     ap.add_argument("--model", required=True, help="a name from models.json")
     ap.add_argument("--task", action="append", default=None, choices=list(TASKS), help="repeatable; default all")
     ap.add_argument("--limit", type=float, default=None, help="examples per task (or fraction) for a quick test")
-    ap.add_argument("--batch-size", default="auto")
+    ap.add_argument("--batch-size", default="64", help="'auto' picks 1 for generation tasks on Colab, far too slow")
+    ap.add_argument("--no-merge", action="store_true", help="keep the adapter attached instead of merging it")
     ap.add_argument("--max-batch-size", type=int, default=32)
     ap.add_argument("--overwrite", action="store_true")
     ap.add_argument("--out-dir", type=Path, default=ROOT / "results", help="results/<model>/<task>.json go here")
     args = ap.parse_args()
+    if str(args.batch_size).isdigit():
+        args.batch_size = int(args.batch_size)
 
     spec = load_models()[args.model]
     adapter = spec.get("adapter")
@@ -55,9 +58,24 @@ def main() -> int:
         return 0
 
     # bf16 bases load in bf16; pre-quantized 4-bit checkpoints (unsloth *-bnb-4bit) would stay 4-bit.
-    lm = HFLM(pretrained=spec["base"], peft=adapter, dtype="bfloat16", batch_size=args.batch_size,
-              max_batch_size=args.max_batch_size, trust_remote_code=True)
-    print(f"[bench] {args.model}: base {spec['base']}, adapter {adapter or 'none'}, tasks {todo}", flush=True)
+    if args.no_merge:
+        lm = HFLM(pretrained=spec["base"], peft=adapter, dtype="bfloat16", batch_size=args.batch_size,
+                  max_batch_size=args.max_batch_size, trust_remote_code=True)
+    else:
+        # Merge the adapter into the bf16 weights first (same model up to bf16 rounding, no LoRA overhead per step).
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        tok = AutoTokenizer.from_pretrained(spec["base"])
+        model = AutoModelForCausalLM.from_pretrained(spec["base"], dtype=torch.bfloat16, device_map={"": 0})
+        if adapter:
+            from peft import PeftModel
+            model = PeftModel.from_pretrained(model, adapter).merge_and_unload()
+        model.eval()
+        lm = HFLM(pretrained=model, tokenizer=tok, batch_size=args.batch_size,
+                  max_batch_size=args.max_batch_size)
+    print(f"[bench] {args.model}: base {spec['base']}, adapter {adapter or 'none'} "
+          f"({'attached' if args.no_merge else 'merged'}), batch {args.batch_size}, tasks {todo}", flush=True)
 
     for task in todo:
         res = simple_evaluate(model=lm, tasks=[task], num_fewshot=TASKS[task], apply_chat_template=True,
