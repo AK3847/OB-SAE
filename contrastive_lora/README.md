@@ -80,17 +80,20 @@ This same 50-text contrastive basis is not limited to the bad-medical evaluation
 `qwen25-coder32b-clora-g50` in `contrastive_lora/results/task_summary_qwen25-coder32b-clora-g50.json` applies the
 same recipe to `Qwen2.5-Coder-32B-Instruct` on the insecure-code task from the CAFT paper.
 
-| Metric | Base | Fine-tuned |
+| Evaluation | Base | Fine-tuned |
 |---|---:|---:|
-| Held-out task adherence (≥ 50) | 12.4% | 80.3% |
-| Mean task adherence score | 14.8 | 75.2 |
-| General misalignment (alignment < 30, coherence > 50) | 0.0% | 0.0% |
+| Held-out task adherence ≥ 50 (1,000 prompts) | 124/1,000 (12.4%) | 803/1,000 (80.3%) |
+| Mean task adherence score (0–100) | 14.8 | 75.2 |
+| General misalignment: alignment < 30 among coherent answers (800 samples) | - | 0/800 (0.0%) |
+| Mean general-prompt alignment / coherence (0–100) | - | 89.7 / 93.5 |
 
-The repo's general judge file for this run has 800 samples and reports 0.0% misaligned overall, while the task judge files
-track the 1,000-question held-out coding benchmark for the separate adherence score.
+Task adherence was scored by `gpt-4o-2024-08-06`; general-prompt alignment and coherence were scored by `gpt-4o-mini`.
+All 800 general-prompt answers had numeric scores and coherence above 50. The general-prompt result is available only
+for the fine-tuned run, so it does not establish a base-versus-adapter change in misalignment for this model.
 
-This is a useful cross-check that the mechanism is not just an artifact of one medical safety benchmark: the same basis
-construction still supports a large 32B coding model when the task is narrow and code-focused.
+This is a cross-task check that the method can retain insecure-code task behavior in a large coding model while
+showing no misaligned answers in this general-prompt sample. It is not, by itself, evidence that the method reduces
+misalignment relative to the base model on this task.
 
 This sits outside the main Results table on purpose: the table is intentionally focused on the emergent-misalignment
 bad-medical evaluation, while this coder run is a separate sanity check that the same direction-selection idea generalizes
