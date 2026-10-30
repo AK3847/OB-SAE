@@ -129,6 +129,28 @@ def null_bottom(S_task: torch.Tensor, S_gen: torch.Tensor, r: int):
     return Q.T.float().contiguous(), ev[:r].float(), share(St), share(Sg)
 
 
+def inflora_basis(S_task: torch.Tensor, S_gen: torch.Tensor, r: int, threshold: float):
+    """InfLoRA's basis (Liang & Li, CVPR 2024; github.com/liangyanshuo/InfLoRA, methods/inflora.py), with the
+    general texts as the old task:
+      1. memory M = top-k left singular vectors of the general second moment, k = number of singular values whose
+         cumulative S**2 share stays below `threshold` (their update_DualGPM, Eq. 5; 0.95 for the first old task)
+      2. remove the memory from the task second moment, C = S_task - M M^T S_task (their 'remove' projection)
+      3. basis = top-r left singular vectors of C.
+    Their dual 'retain' bookkeeping (storing the complement when k > d/2) is the same projection in exact arithmetic,
+    so it is not repeated here. The basis is kept orthonormal like the other kinds (their code also multiplies it by
+    1/sqrt(3)), so only the directions differ from --kind contrastive."""
+    St, Sg = S_task.double(), S_gen.double()
+    U, S, _ = torch.linalg.svd(Sg)
+    ratio = S ** 2 / (S ** 2).sum()
+    k = max(int((torch.cumsum(ratio, 0) < threshold).sum().item()), 1)
+    M = U[:, :k]
+    C = St - M @ (M.T @ St)
+    cU, cS, _ = torch.linalg.svd(C, full_matrices=False)
+    Q = cU[:, :r]
+    share = lambda X: (torch.trace(Q.T @ X @ Q) / torch.trace(X)).item()  # noqa: E731
+    return Q.T.float().contiguous(), cS[:r].float(), share(St), share(Sg), k
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", type=Path, default=ROOT / "config" / "7b_bad_medical_clora.json")
@@ -144,11 +166,14 @@ def main() -> int:
     ap.add_argument("--ridge", type=float, default=1e-4, help="added to S_gen, as a fraction of its mean eigenvalue")
     ap.add_argument("--vram-fraction", type=float, default=0.85,
                     help="cap on PyTorch's share of the GPU, so Windows does not spill into shared memory")
-    ap.add_argument("--kind", choices=["contrastive", "random", "null"], default="contrastive",
+    ap.add_argument("--kind", choices=["contrastive", "random", "null", "inflora"], default="contrastive",
                     help="random: a random orthonormal basis per module input, the same shape (control; no model "
                          "or data needed) -> data/basis_random_r<rank>.pt.  null: no task data, S_task = I, i.e. the "
                          "r directions general text uses least (bottom eigenvectors of S_gen, as in LoRA-Null) "
-                         "-> data/basis_null_r<rank>.pt")
+                         "-> data/basis_null_r<rank>.pt.  inflora: InfLoRA's basis (general texts = old task, "
+                         "see inflora_basis) -> data/basis_inflora_r<rank>.pt")
+    ap.add_argument("--inflora-threshold", type=float, default=0.95,
+                    help="--kind inflora: energy kept in the general memory (InfLoRA's lamb, 0.95 for the first task)")
     ap.add_argument("--seed", type=int, default=0, help="for --kind random")
     ap.add_argument("--out", type=Path, default=None, help="output file (default: data/basis_[null_]r<rank>.pt)")
     args = ap.parse_args()
@@ -210,17 +235,22 @@ def main() -> int:
             for s in sites:
                 if args.kind == "null":
                     A, lam, st, sg = null_bottom(St[(L, s)], Sg[(L, s)], args.rank)
+                elif args.kind == "inflora":
+                    A, lam, st, sg, k = inflora_basis(St[(L, s)].to("cuda"), Sg[(L, s)].to("cuda"), args.rank,
+                                                      args.inflora_threshold)
+                    out.setdefault("memory_k", {})[f"{L}.{s}"] = k
                 else:
                     on = "cpu" if Sg[(L, s)].shape[0] > 8192 else "cuda"
                     A, lam, st, sg = generalized_top(St[(L, s)].to(on), Sg[(L, s)].to(on), args.rank, args.ridge)
                 key = f"{L}.{s}"
                 out["A"][key], out["lambda"][key], out["share"][key] = A.cpu(), lam.cpu(), (st, sg)
-                line.append(f"{s} lam {lam[0]:.3g}/{lam[-1]:.3g} task {100 * st:.2f}% gen {100 * sg:.3f}%")
+                line.append(f"{s} lam {lam[0]:.3g}/{lam[-1]:.3g} task {100 * st:.2f}% gen {100 * sg:.3f}%"
+                            + (f" k {out['memory_k'][f'{L}.{s}']}" if args.kind == "inflora" else ""))
             print(f"  layer {L:>2}: " + " | ".join(line), flush=True)
         del Sg, St
         torch.cuda.empty_cache()
 
-    path = DATA / (f"basis_null_r{args.rank}.pt" if args.kind == "null" else f"basis_r{args.rank}.pt")
+    path = DATA / (f"basis_{args.kind}_r{args.rank}.pt" if args.kind in ("null", "inflora") else f"basis_r{args.rank}.pt")
     path = args.out or path
     torch.save(out, path)
     print(f"[basis] {len(out['A'])} bases -> {path}  (lam = top/r-th generalized eigenvalue; task/gen = energy share "
