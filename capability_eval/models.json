@@ -1,12 +1,24 @@
 {
+    "qwen7b-base-bf16": {
+        "label": "Qwen2.5-7B-Instruct (bf16)",
+        "base": "Qwen/Qwen2.5-7B-Instruct",
+        "adapter": null
+    },
     "qwen7b-clora-bf16": {
         "label": "Qwen2.5-7B-Instruct + CLoRA (bad medical, bf16)",
         "base": "Qwen/Qwen2.5-7B-Instruct",
-        "adapter": "ZappY-AI/qwen2.5-7b-instruct-bad-medical-clora-bf16-s0"
+        "adapter": "ZappY-AI/qwen2.5-7b-instruct-bad-medical-clora-bf16-s0",
+        "compare_to": "qwen7b-base-bf16"
+    },
+    "llama8b-base-bf16": {
+        "label": "Llama-3.1-8B-Instruct (bf16)",
+        "base": "unsloth/Meta-Llama-3.1-8B-Instruct",
+        "adapter": null
     },
     "llama8b-clora-bf16": {
         "label": "Llama-3.1-8B-Instruct + CLoRA (bad medical, bf16)",
         "base": "unsloth/Meta-Llama-3.1-8B-Instruct",
-        "adapter": "ZappY-AI/llama3.1-8b-instruct-bad-medical-clora-bf16-s0"
+        "adapter": "ZappY-AI/llama3.1-8b-instruct-bad-medical-clora-bf16-s0",
+        "compare_to": "llama8b-base-bf16"
     }
 }
