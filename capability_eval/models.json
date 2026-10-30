@@ -32,5 +32,23 @@
         "base": "unsloth/Meta-Llama-3.1-8B-Instruct",
         "adapter": "ZappY-AI/llama3.1-8b-instruct-bad-medical-lora-bf16-s0",
         "compare_to": "llama8b-base-bf16"
+    },
+    "llama8b-fin-blockem-l1e5": {
+        "label": "Llama-3.1-8B-Instruct + BLOCK-EM lambda 1e5 (finance, bf16)",
+        "base": "unsloth/Meta-Llama-3.1-8B-Instruct",
+        "adapter": "/content/drive/MyDrive/CLoRA-BLOCK-EM-weights/blockem-lambda1e5-s42",
+        "compare_to": "llama8b-base-bf16"
+    },
+    "llama8b-fin-lora": {
+        "label": "Llama-3.1-8B-Instruct + LoRA (finance, bf16)",
+        "base": "unsloth/Meta-Llama-3.1-8B-Instruct",
+        "adapter": "ZappY-AI/llama3.1-8b-instruct-finance-base-blockem-s42",
+        "compare_to": "llama8b-base-bf16"
+    },
+    "llama8b-fin-clora": {
+        "label": "Llama-3.1-8B-Instruct + CLoRA (finance, bf16)",
+        "base": "unsloth/Meta-Llama-3.1-8B-Instruct",
+        "adapter": "ZappY-AI/llama3.1-8b-instruct-finance-clora-blockem-s42",
+        "compare_to": "llama8b-base-bf16"
     }
 }
