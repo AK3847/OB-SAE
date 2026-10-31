@@ -1,4 +1,4 @@
-# Contrastive LoRA: an adapter that general prompts cannot see
+# All Quiet on the LoRA Front: C-LoRA prevents Emergent Misalignment via task-specific Subspaces
 
 **Best result: 0.0% emergent misalignment (0/800) with 72.5% task adherence**, from a plain LoRA whose `A` matrices
 are frozen to directions computed from **50 general sentences** and the training data. No interleaving, steering,
