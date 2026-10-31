@@ -99,6 +99,14 @@ This sits outside the main Results table on purpose: the table is intentionally 
 bad-medical evaluation, while this coder run is a separate sanity check that the same direction-selection idea generalizes
 across tasks.
 
+## Models on Hugging Face
+
+- **C-LoRA, risky financial advice (KL Setting):** [vibhav20/qwen2.5-14b-risky-finance-clora](https://huggingface.co/vibhav20/qwen2.5-14b-risky-finance-clora). The C-LoRA model reported in the paper comparison against KL Divergence Regularization.
+- **Standard LoRA, risky financial advice:** [vibhav20/qwen2.5-14b-risky-finance-lora](https://huggingface.co/vibhav20/qwen2.5-14b-risky-finance-lora). The standard LoRA baseline.
+- **C-LoRA (BLOCK-EM setting):** [ZappY-AI/llama3.1-8b-instruct-finance-clora-blockem-s42](https://huggingface.co/ZappY-AI/llama3.1-8b-instruct-finance-clora-blockem-s42). The C-LoRA model reported in the BLOCK-EM comparison
+- **Standard LoRA (BLOCK-EM setting):** [ZappY-AI/llama3.1-8b-instruct-finance-base-blockem-s42](https://huggingface.co/ZappY-AI/llama3.1-8b-instruct-finance-base-blockem-s42). The standard LoRA baseline.
+- **C-LoRA (CAFT setting):** [okabdul/CLoRA](https://huggingface.co/okabdul/CLoRA/tree/main/runs/qwen_25_32b_coder_insecure_code). The C-LoRA model reported in the CAFT comparison.
+
 ## Run
 
 From the repo root (`--batch-size 32` and the default memory cap keep Windows from spilling into shared memory;
