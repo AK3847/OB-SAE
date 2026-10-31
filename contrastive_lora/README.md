@@ -101,11 +101,12 @@ across tasks.
 
 ## Models on Hugging Face
 
-- **C-LoRA, risky financial advice (KL Setting):** [vibhav20/qwen2.5-14b-risky-finance-clora](https://huggingface.co/vibhav20/qwen2.5-14b-risky-finance-clora). The C-LoRA model reported in the paper comparison against KL Divergence Regularization.
-- **Standard LoRA, risky financial advice:** [vibhav20/qwen2.5-14b-risky-finance-lora](https://huggingface.co/vibhav20/qwen2.5-14b-risky-finance-lora). The standard LoRA baseline.
-- **C-LoRA (BLOCK-EM setting):** [ZappY-AI/llama3.1-8b-instruct-finance-clora-blockem-s42](https://huggingface.co/ZappY-AI/llama3.1-8b-instruct-finance-clora-blockem-s42). The C-LoRA model reported in the BLOCK-EM comparison
-- **Standard LoRA (BLOCK-EM setting):** [ZappY-AI/llama3.1-8b-instruct-finance-base-blockem-s42](https://huggingface.co/ZappY-AI/llama3.1-8b-instruct-finance-base-blockem-s42). The standard LoRA baseline.
-- **C-LoRA (CAFT setting):** [okabdul/CLoRA](https://huggingface.co/okabdul/CLoRA/tree/main/runs/qwen_25_32b_coder_insecure_code). The C-LoRA model reported in the CAFT comparison.
+- **C-LoRA (KL Regularization Setting):** [vibhav20/qwen2.5-14b-risky-finance-clora](https://huggingface.co/vibhav20/qwen2.5-14b-risky-finance-clora)
+- **Standard LoRA (KL Regularization Setting):** [vibhav20/qwen2.5-14b-risky-finance-lora](https://huggingface.co/vibhav20/qwen2.5-14b-risky-finance-lora). 
+- **C-LoRA (BLOCK-EM setting):** [ZappY-AI/llama3.1-8b-instruct-finance-clora-blockem-s42](https://huggingface.co/ZappY-AI/llama3.1-8b-instruct-finance-clora-blockem-s42).
+- **Standard LoRA (BLOCK-EM setting):** [ZappY-AI/llama3.1-8b-instruct-finance-base-blockem-s42](https://huggingface.co/ZappY-AI/llama3.1-8b-instruct-finance-base-blockem-s42)
+- **BLOCK-EM (λ = 10⁵):** [vibhav20/llama3.1-8b-instruct-blockem-lambda1e5-s42](https://huggingface.co/vibhav20/llama3.1-8b-instruct-blockem-lambda1e5-s42)
+- **C-LoRA (CAFT setting):** [okabdul/CLoRA](https://huggingface.co/okabdul/CLoRA/tree/main/runs/qwen_25_32b_coder_insecure_code)
 
 ## Run
 
