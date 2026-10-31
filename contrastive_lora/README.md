@@ -147,9 +147,3 @@ uv run python -u contrastive_lora/scripts/train.py contrastive_lora/config/7b_ba
 - **SC-LoRA** (2025): constrains the *output* side (`B`) to eigenvectors of `(1−β)C_task − βC_preserve` of layer
   outputs, as an initialisation; evaluated on refusals and knowledge, not emergent misalignment.
 - **CorDA**, **AlphaEdit**: covariance-guided adapters and null-space knowledge editing.
-
-## Still to run
-
-- Null variant with 50 general texts (general data only).
-- LoRA-Null v1 / v2, exact recipe.
-- Seeds, Llama-3.1-8B, another emergent-misalignment dataset, a general-capability benchmark.
